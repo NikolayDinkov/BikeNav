@@ -9,12 +9,12 @@ import Foundation
 import SwiftProtobuf
 
 
-struct RawFile {
+class RawFile {
     let fileManager: FileManager = .default
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
     
-    mutating func openFile() {
+    func openFile() {
         guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
             assert(false)
             return
@@ -82,12 +82,12 @@ struct RawFile {
                             deltaDecoderLon.current = deltaDecoderLon.previous + Int(lon)
                             deltaDecoderLon.previous = deltaDecoderLon.current
                             
-                            print("\nNode \(deltaDecoderID.current)")
-                            print("\(0.000000001 * Double((Int(primitiveBlock.latOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLat.current)))) - \(0.000000001 * Double((Int(primitiveBlock.lonOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLon.current))))")
+//                            print("\nNode \(deltaDecoderID.current)")
+//                            print("\(0.000000001 * Double((Int(primitiveBlock.latOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLat.current)))) - \(0.000000001 * Double((Int(primitiveBlock.lonOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLon.current))))")
                             let newNode = DenseNodeNew(id: deltaDecoderID.current,
                                                        latCalculated: 0.000000001 * Double((Int(primitiveBlock.latOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLat.current))),
                                                        lonCalculated: 0.000000001 * Double((Int(primitiveBlock.lonOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLon.current))))
-                            nodes.append(newNode)
+                    //        nodes.append(newNode)
 //                            for (index, keyVals) in keyValsArray.enumerated() {
 //                                if index % 2 != 0 {
 //                                    let keyString = String(data: primitiveBlock.stringtable.s[Int(keyValsArray[index - 1])], encoding: .utf8)!
@@ -108,16 +108,22 @@ struct RawFile {
 //                            }
 //                            if printer == true {
                             deltaDecoderID.recall()
+                            var nodeRefs = [Int]()
                             for ref in way.refs {
                                 deltaDecoderID.current = deltaDecoderID.previous + Int(ref)
-                                print(deltaDecoderID.current)
                                 deltaDecoderID.previous = deltaDecoderID.current
+                                nodeRefs.append(deltaDecoderID.current)
                             }
+                            
+                            var keyVal = [String: String]()
                             for (key, value) in zip(way.keys, way.vals) {
                                 let keyString = String(data: primitiveBlock.stringtable.s[Int(key)], encoding: .utf8)!
                                 let valString = String(data: primitiveBlock.stringtable.s[Int(value)], encoding: .utf8)!
-                                print("\(keyString) - \(valString)")
+                                keyVal[keyString] = valString
                             }
+                            print(keyVal)
+                            let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
+                            ways.append(newWay)
 //                            }
                         }
                     }
