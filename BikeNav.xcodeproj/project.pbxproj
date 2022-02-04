@@ -12,10 +12,12 @@
 		5A9274E927A2CDF40070EEA3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5A9274E827A2CDF40070EEA3 /* Assets.xcassets */; };
 		5A9274EC27A2CDF40070EEA3 /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5A9274EB27A2CDF40070EEA3 /* Preview Assets.xcassets */; };
 		5A9274F627A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf in Resources */ = {isa = PBXBuildFile; fileRef = 5A9274F227A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf */; };
-		5A9274F727A2CEAA0070EEA3 /* FileOpener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274F327A2CEAA0070EEA3 /* FileOpener.swift */; };
+		5A9274F727A2CEAA0070EEA3 /* RawFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274F327A2CEAA0070EEA3 /* RawFile.swift */; };
 		5A9274F827A2CEAA0070EEA3 /* Fileformat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274F427A2CEAA0070EEA3 /* Fileformat.swift */; };
 		5A9274F927A2CEAA0070EEA3 /* osmformat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274F527A2CEAA0070EEA3 /* osmformat.swift */; };
 		5A9274FD27A2D3C60070EEA3 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 5A9274FC27A2D3C60070EEA3 /* SwiftProtobuf */; };
+		5A92750727AD30E30070EEA3 /* DenseNodeNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */; };
+		5A92750927AD50360070EEA3 /* WayNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750827AD50360070EEA3 /* WayNew.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,9 +27,11 @@
 		5A9274E827A2CDF40070EEA3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5A9274EB27A2CDF40070EEA3 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		5A9274F227A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bulgaria-211215.osm.pbf"; sourceTree = "<group>"; };
-		5A9274F327A2CEAA0070EEA3 /* FileOpener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = FileOpener.swift; sourceTree = "<group>"; };
+		5A9274F327A2CEAA0070EEA3 /* RawFile.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = RawFile.swift; sourceTree = "<group>"; };
 		5A9274F427A2CEAA0070EEA3 /* Fileformat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Fileformat.swift; sourceTree = "<group>"; };
 		5A9274F527A2CEAA0070EEA3 /* osmformat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = osmformat.swift; sourceTree = "<group>"; };
+		5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DenseNodeNew.swift; sourceTree = "<group>"; };
+		5A92750827AD50360070EEA3 /* WayNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WayNew.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -61,12 +65,11 @@
 		5A9274E327A2CDF20070EEA3 /* BikeNav */ = {
 			isa = PBXGroup;
 			children = (
-				5A9274F227A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf */,
-				5A9274F427A2CEAA0070EEA3 /* Fileformat.swift */,
-				5A9274F327A2CEAA0070EEA3 /* FileOpener.swift */,
-				5A9274F527A2CEAA0070EEA3 /* osmformat.swift */,
+				5A92750527AD2DAD0070EEA3 /* FileWork */,
+				5A92750427AD2D8E0070EEA3 /* Views */,
+				5A92750327AD2D610070EEA3 /* OsmProto's */,
+				5A92750127ABD44B0070EEA3 /* Resources */,
 				5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */,
-				5A9274E627A2CDF20070EEA3 /* ContentView.swift */,
 				5A9274E827A2CDF40070EEA3 /* Assets.xcassets */,
 				5A9274EA27A2CDF40070EEA3 /* Preview Content */,
 			);
@@ -79,6 +82,41 @@
 				5A9274EB27A2CDF40070EEA3 /* Preview Assets.xcassets */,
 			);
 			path = "Preview Content";
+			sourceTree = "<group>";
+		};
+		5A92750127ABD44B0070EEA3 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5A9274F227A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		5A92750327AD2D610070EEA3 /* OsmProto's */ = {
+			isa = PBXGroup;
+			children = (
+				5A9274F527A2CEAA0070EEA3 /* osmformat.swift */,
+				5A9274F427A2CEAA0070EEA3 /* Fileformat.swift */,
+			);
+			path = "OsmProto's";
+			sourceTree = "<group>";
+		};
+		5A92750427AD2D8E0070EEA3 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				5A9274E627A2CDF20070EEA3 /* ContentView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		5A92750527AD2DAD0070EEA3 /* FileWork */ = {
+			isa = PBXGroup;
+			children = (
+				5A9274F327A2CEAA0070EEA3 /* RawFile.swift */,
+				5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */,
+				5A92750827AD50360070EEA3 /* WayNew.swift */,
+			);
+			path = FileWork;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -158,11 +196,13 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5A92750727AD30E30070EEA3 /* DenseNodeNew.swift in Sources */,
 				5A9274F827A2CEAA0070EEA3 /* Fileformat.swift in Sources */,
 				5A9274E727A2CDF20070EEA3 /* ContentView.swift in Sources */,
-				5A9274F727A2CEAA0070EEA3 /* FileOpener.swift in Sources */,
+				5A9274F727A2CEAA0070EEA3 /* RawFile.swift in Sources */,
 				5A9274F927A2CEAA0070EEA3 /* osmformat.swift in Sources */,
 				5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */,
+				5A92750927AD50360070EEA3 /* WayNew.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -9,13 +9,13 @@ import SwiftUI
 
 @main
 struct BikeNavApp: App {
-    let fileOpener = FileOpener()
+    let rawFile = RawFile()
     
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    fileOpener.openFile()
+                    rawFile.openFile()
                 }
         }
     }
