@@ -13,7 +13,7 @@ class RawFile {
     let fileManager: FileManager = .default
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
-    var map: [Int: WayNew] = [Int: WayNew]()
+    var references: [Int: [WayNew]] = [Int: [WayNew]]()
     
     func openFile() {
         guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
@@ -118,7 +118,6 @@ class RawFile {
                                 let valString = String(data: primitiveBlock.stringtable.s[Int(value)], encoding: .utf8)!
                                 keyVal[keyString] = valString
                             }
-                            print(keyVal)
                             
                             deltaDecoderID.recall()
                             var nodeRefs = [Int]()
@@ -130,6 +129,13 @@ class RawFile {
                             if shouldAppend == true {
                                 let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
                                 ways.append(newWay)
+                                for id in newWay.nodeRefs {
+                                    if references[id] == nil {
+                                        references[id] = [newWay]
+                                    } else {
+                                        references[id]!.append(newWay)
+                                    }
+                                }
                             }
 //                            }
                         }
@@ -139,14 +145,33 @@ class RawFile {
                 }
                 parser.data = parser.data.dropFirst(headerLength + Int(blobHeader.datasize))
             }
-            print("End")
+//            for way in ways {
+//                print(way)
+//            }
+            print("File read")
         } catch {
 //            print((error as NSError).userInfo)
             print(error.localizedDescription)
             assert(false)
             return
         }
-        
+    }
+    
+    func reduceMap() {
+        for (id, ways) in references {
+            // maybe way must be an array of ways
+            if ways.count == 1 {
+                references[id] = nil
+                //here maybe new loop/? for reducing the node array so when we are looking for lats and lons
+//                guard nodes.remove(at: nodes.firstIndex(where: { $0.id == id }) ) else {
+//                    print("Not avaliable ID of node when trying to remove!")
+//                }
+            } else {
+                for way in ways {
+                    // need to check the names of every way connected to a certain node
+                }
+            }
+        }
     }
 }
 
