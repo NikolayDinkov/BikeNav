@@ -10,13 +10,15 @@ import SwiftProtobuf
 
 
 class RawFile {
+    let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
+    let parallelProcessingQueue = DispatchQueue(label: "parallel.dictionary", qos: .userInteractive, attributes: [.concurrent])
     let fileManager: FileManager = .default
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
     var references: [Int: [WayNew]] = [Int: [WayNew]]()
     
     func openFile() {
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
+        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
             assert(false)
             return
         }
@@ -33,6 +35,7 @@ class RawFile {
                 let blobRange = headerLength ..< (Int(blobHeader.datasize) + headerLength)
                 let blob = try OSMPBF_Blob(serializedData: parser.data.subdata(in: blobRange))
                 let compressedData = blob.zlibData.dropFirst(2)
+                //zlibData[1...2
                 let decompressedData = try (compressedData as NSData).decompressed(using: .zlib)
                 switch blobHeader.type {
                 case "OSMHeader":
@@ -148,6 +151,8 @@ class RawFile {
 //            for way in ways {
 //                print(way)
 //            }
+            
+            nodes = nodes.filter({ references[$0.id] != nil })
             print("File read")
         } catch {
 //            print((error as NSError).userInfo)
@@ -158,20 +163,51 @@ class RawFile {
     }
     
     func reduceMap() {
-        for (id, ways) in references {
-            // maybe way must be an array of ways
-            if ways.count == 1 {
-                references[id] = nil
-                //here maybe new loop/? for reducing the node array so when we are looking for lats and lons
-//                guard nodes.remove(at: nodes.firstIndex(where: { $0.id == id }) ) else {
-//                    print("Not avaliable ID of node when trying to remove!")
-//                }
-            } else {
-                for way in ways {
-                    // need to check the names of every way connected to a certain node
+        print("Reducing nodes & ways")
+        
+        let referencesCount = references.keys.count
+        let entriesPerTask = 1000
+        let tasks = referencesCount / entriesPerTask
+        var nodeIdsToRemove: [Int] = []
+        
+        print("References: \(referencesCount)")
+        print("Tasks: \(tasks)")
+        
+        let before = Date().timeIntervalSince1970
+        self.parallelProcessingQueue.sync {
+            DispatchQueue.concurrentPerform(iterations: tasks) { offset in
+                let startIndex = offset * entriesPerTask
+                let endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index
+                let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
+                
+                var currentIterrationToRemove: [Int] = []
+                
+                for id in nodeIds {
+                    guard let ways = self.references[id] else {
+                        print("Node with no ways")
+                        continue
+                    }
+                    
+                    guard ways.count > 1 else {
+                        currentIterrationToRemove.append(id)
+                        continue
+                    }
+
+                    let names = Set(ways.compactMap { $0.keyVal["name"] })
+
+                    if names.count < 2 {
+                        currentIterrationToRemove.append(id)
+                    }
+                }
+                
+                self.serialSyncQueue.async {
+                    nodeIdsToRemove.append(contentsOf: currentIterrationToRemove)
                 }
             }
         }
+        let after = Date().timeIntervalSince1970
+        print("Took \((after - before) / 1000) seconds")
+        // TODO: remove nodes from nodeIdsToRemove
     }
 }
 

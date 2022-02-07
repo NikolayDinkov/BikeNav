@@ -16,6 +16,7 @@ struct BikeNavApp: App {
             ContentView()
                 .onAppear {
                     rawFile.openFile()
+                    rawFile.reduceMap()
                 }
         }
     }
