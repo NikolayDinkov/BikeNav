@@ -177,7 +177,10 @@ class RawFile {
         self.parallelProcessingQueue.sync {
             DispatchQueue.concurrentPerform(iterations: tasks) { offset in
                 let startIndex = offset * entriesPerTask
-                let endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index
+                var endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index
+                if endIndex > self.references.keys.count {
+                    endIndex = self.references.keys.count
+                }
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
                 
                 var currentIterrationToRemove: [Int] = []
@@ -208,6 +211,10 @@ class RawFile {
         let after = Date().timeIntervalSince1970
         print("Took \((after - before) / 1000) seconds")
         // TODO: remove nodes from nodeIdsToRemove
+        for nodeId in nodeIdsToRemove {
+            nodes = nodes.filter({ $0.id != nodeId })
+            references[nodeId] = nil
+        }
     }
 }
 
