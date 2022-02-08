@@ -22,12 +22,12 @@ class RawFile {
             assert(false)
             return
         }
-        
+        let before = Date().timeIntervalSince1970
         var fileData: Data
         do {
             fileData = try Data(contentsOf: fileURL)
-            var deltaDecoderID = DeltaDecoder(previous: 0, current: 0)
-            var parser = Parser(data: fileData)            
+            var parser = Parser(data: fileData)
+            var offset = 0
             while parser.data.count > 0 {
                 let headerLength = Int(parser.parseLEUInt32()!)
                 let headerRange = 0..<headerLength
@@ -45,115 +45,19 @@ class RawFile {
                     let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
                     for var primitiveGroup in primitiveBlock.primitivegroup {
                         /// Handle nodes(DenseNode) and print
-                        let keyValArray = primitiveGroup.dense.keysVals.reduce([[Int32]]()) { partialResult, current in
-                            if current != 0 {
-                                var partialResultLast = partialResult.last ?? []
-                                partialResultLast.append(current)
-                                var partialResultMy = partialResult
-                                if partialResult.count == 0 {
-                                    partialResultMy = [partialResultLast]
-                                } else {
-                                    partialResultMy[partialResult.count - 1] = partialResultLast
-                                }
-                                return partialResultMy
-                            } else {
-                                var partialResultMy = partialResult
-                                partialResultMy.append([])
-                                return partialResultMy
-                            }
-                        }
-
-                        let idKV = zip(primitiveGroup.dense.id, keyValArray)
-                        let latLon = zip(primitiveGroup.dense.lat, primitiveGroup.dense.lon)
-
-                        let flattened = zip(idKV, latLon).map { tupleOld in
-                            return (tupleOld.0.0, tupleOld.0.1, tupleOld.1.0, tupleOld.1.1)
-                        }
-                        var deltaDecoderLat = DeltaDecoder(previous: 0, current: 0)
-                        var deltaDecoderLon = DeltaDecoder(previous: 0, current: 0)
-                        
-                        deltaDecoderID.recall()
-                        deltaDecoderLat.recall()
-                        deltaDecoderLon.recall()
-                        
-                        for (id, keyValsArray, lat, lon) in flattened {
-                            deltaDecoderID.current = deltaDecoderID.previous + Int(id)
-                            deltaDecoderID.previous = deltaDecoderID.current
-                            
-                            deltaDecoderLat.current = deltaDecoderLat.previous + Int(lat)
-                            deltaDecoderLat.previous = deltaDecoderLat.current
-                            
-                            deltaDecoderLon.current = deltaDecoderLon.previous + Int(lon)
-                            deltaDecoderLon.previous = deltaDecoderLon.current
-                            
-//                            print("\nNode \(deltaDecoderID.current)")
-//                            print("\(0.000000001 * Double((Int(primitiveBlock.latOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLat.current)))) - \(0.000000001 * Double((Int(primitiveBlock.lonOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLon.current))))")
-                            let newNode = DenseNodeNew(id: deltaDecoderID.current,
-                                                       latCalculated: 0.000000001 * Double((Int(primitiveBlock.latOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLat.current))),
-                                                       lonCalculated: 0.000000001 * Double((Int(primitiveBlock.lonOffset) + (Int(primitiveBlock.granularity) * deltaDecoderLon.current))))
-                            nodes.append(newNode)
-//                            for (index, keyVals) in keyValsArray.enumerated() {
-//                                if index % 2 != 0 {
-//                                    let keyString = String(data: primitiveBlock.stringtable.s[Int(keyValsArray[index - 1])], encoding: .utf8)!
-//                                    let valString = String(data: primitiveBlock.stringtable.s[Int(keyVals)], encoding: .utf8)!
-//                                    print("\(keyString) - \(valString)")
-//                                }
-//                            }
-                        }
+                        handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity)
                         /// Handle ways and print their values
-                        for way in primitiveGroup.ways {
-//                            var printer = false
-//                            for (key,value) in zip(way.keys, way.vals) {
-//                                let keyString = String(data: primitiveBlock.stringtable.s[Int(key)], encoding: .utf8)!
-//                                let valString = String(data: primitiveBlock.stringtable.s[Int(value)], encoding: .utf8)!
-//                                if keyString.elementsEqual("name") && valString.elementsEqual("бул. Цар Борис III") {
-//                                    printer = true
-//                                }
-//                            }
-//                            if printer == true {
-                            var shouldAppend = false
-                            var keyVal = [String: String]()
-                            for (key, value) in zip(way.keys, way.vals) {
-                                let keyString = String(data: primitiveBlock.stringtable.s[Int(key)], encoding: .utf8)!
-                                if keyString == "highway" {
-                                    shouldAppend = true
-                                }
-                                let valString = String(data: primitiveBlock.stringtable.s[Int(value)], encoding: .utf8)!
-                                keyVal[keyString] = valString
-                            }
-                            
-                            deltaDecoderID.recall()
-                            var nodeRefs = [Int]()
-                            for ref in way.refs {
-                                deltaDecoderID.current = deltaDecoderID.previous + Int(ref)
-                                deltaDecoderID.previous = deltaDecoderID.current
-                                nodeRefs.append(deltaDecoderID.current)
-                            }
-                            if shouldAppend == true {
-                                let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
-                                ways.append(newWay)
-                                for id in newWay.nodeRefs {
-                                    if references[id] == nil {
-                                        references[id] = [newWay]
-                                    } else {
-                                        references[id]!.append(newWay)
-                                    }
-                                }
-                            }
-//                            }
-                        }
+                        handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
                     }
                 default:
                     print("Bad")
                 }
                 parser.data = parser.data.dropFirst(headerLength + Int(blobHeader.datasize))
             }
-//            for way in ways {
-//                print(way)
-//            }
-            
             nodes = nodes.filter({ references[$0.id] != nil })
             print("File read")
+            let after = Date().timeIntervalSince1970
+            print("Took \((after - before)) seconds")
         } catch {
 //            print((error as NSError).userInfo)
             print(error.localizedDescription)
@@ -162,8 +66,93 @@ class RawFile {
         }
     }
     
+    func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32) {
+        let keyValArray = primitiveGroup.dense.keysVals.reduce([[Int32]]()) { partialResult, current in // TODO: See if I need key and values of Nodes
+            if current != 0 {
+                var partialResultLast = partialResult.last ?? []
+                partialResultLast.append(current)
+                var partialResultMy = partialResult
+                if partialResult.count == 0 {
+                    partialResultMy = [partialResultLast]
+                } else {
+                    partialResultMy[partialResult.count - 1] = partialResultLast
+                }
+                return partialResultMy
+            } else {
+                var partialResultMy = partialResult
+                partialResultMy.append([])
+                return partialResultMy
+            }
+        }
+
+        let idKV = zip(primitiveGroup.dense.id, keyValArray)
+        let latLon = zip(primitiveGroup.dense.lat, primitiveGroup.dense.lon)
+
+        let flattened = zip(idKV, latLon).map { tupleOld in
+            return (tupleOld.0.0, tupleOld.0.1, tupleOld.1.0, tupleOld.1.1)
+        }
+        var deltaDecoderID = DeltaDecoder(previous: 0)
+        var deltaDecoderLat = DeltaDecoder(previous: 0)
+        var deltaDecoderLon = DeltaDecoder(previous: 0)
+        
+        for (id, keyValsArray, lat, lon) in flattened {
+            deltaDecoderID.previous = deltaDecoderID.previous + Int(id)
+            deltaDecoderLat.previous = deltaDecoderLat.previous + Int(lat)
+            deltaDecoderLon.previous = deltaDecoderLon.previous + Int(lon)
+            
+            let newNode = DenseNodeNew(id: deltaDecoderID.previous,
+                                       latCalculated: 0.000000001 * Double((Int(latOffset) + (Int(granularity) * deltaDecoderLat.previous))),
+                                       lonCalculated: 0.000000001 * Double((Int(lonOffset) + (Int(granularity) * deltaDecoderLon.previous))))
+            nodes.append(newNode)
+//                            for (index, keyVals) in keyValsArray.enumerated() {
+//                                if index % 2 != 0 {
+//                                    let keyString = String(data: primitiveBlock.stringtable.s[Int(keyValsArray[index - 1])], encoding: .utf8)!
+//                                    let valString = String(data: primitiveBlock.stringtable.s[Int(keyVals)], encoding: .utf8)!
+//                                    print("\(keyString) - \(valString)")
+//                                }
+//                            }
+        }
+    }
+    
+    func handleWays(primitiveGroup: OSMPBF_PrimitiveGroup, stringTable: OSMPBF_StringTable) {
+        var deltaDecoderID = DeltaDecoder(previous: 0)
+        for way in primitiveGroup.ways {
+//            let before = Date().timeIntervalSince1970
+            var shouldAppend = false
+            var keyVal = [String: String]()
+            for (key, value) in zip(way.keys, way.vals) {
+                let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
+                if keyString == "highway" {
+                    shouldAppend = true
+                }
+                let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
+                keyVal[keyString] = valString
+            }
+            
+            deltaDecoderID.recall()
+            var nodeRefs = [Int]()
+            for ref in way.refs {
+                deltaDecoderID.previous = deltaDecoderID.previous + Int(ref)
+                nodeRefs.append(deltaDecoderID.previous)
+            }
+            if shouldAppend == true {
+                let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
+                ways.append(newWay)
+                for id in newWay.nodeRefs {
+                    if references[id] == nil {
+                        references[id] = [newWay]
+                    } else {
+                        references[id]!.append(newWay)
+                    }
+                }
+            }
+//            let after = Date().timeIntervalSince1970
+//            print("Took \((after - before) / 1000) seconds")
+        }
+    }
+    
     func reduceMap() {
-        print("Reducing nodes & ways")
+        print("Reducing nodes & ways") // FIXME: what if road has turns but its the same way and node represent the turn
         
         let referencesCount = references.keys.count
         let entriesPerTask = 1000
@@ -197,39 +186,37 @@ class RawFile {
                     }
 
                     let names = Set(ways.compactMap { $0.keyVal["name"] })
-
+                    print(names)
                     if names.count < 2 {
                         currentIterrationToRemove.append(id)
                     }
                 }
                 
-                self.serialSyncQueue.async {
+                self.serialSyncQueue.async { // Question: Is that correct, .sync?
                     nodeIdsToRemove.append(contentsOf: currentIterrationToRemove)
                 }
             }
         }
         let after = Date().timeIntervalSince1970
-        print("Took \((after - before) / 1000) seconds")
-        // TODO: remove nodes from nodeIdsToRemove
+        print("Took \((after - before)) seconds")
+        // TODO: remove nodes from nodeIdsToRemove | Maybe use threads | Can we run this in the background
         for nodeId in nodeIdsToRemove {
             nodes = nodes.filter({ $0.id != nodeId })
             references[nodeId] = nil
         }
+        print("Done deleting not needed nodes")
     }
 }
 
 struct DeltaDecoder {
     var previous: Int
-    var current: Int
     
-    init(previous: Int, current: Int) {
+    init(previous: Int) {
         self.previous = previous
-        self.current = current
     }
     
     public mutating func recall() {
         self.previous = 0
-        self.current = 0
     }
 }
 
