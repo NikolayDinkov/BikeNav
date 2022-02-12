@@ -15,9 +15,10 @@ struct BikeNavApp: App {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    rawFile.parseFile()
-                    rawFile.readFile()
-                    rawFile.reduceMap()
+                    let before = Date().timeIntervalSince1970
+                    rawFile.launch()
+                    let after = Date().timeIntervalSince1970
+                    print("Took \((after - before)) seconds")
                 }
         }
     }

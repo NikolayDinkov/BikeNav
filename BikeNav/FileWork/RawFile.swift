@@ -20,7 +20,7 @@ class RawFile {
     var references: [Int: [WayNew]] = [Int: [WayNew]]()
     
     func parseFile() {
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
+        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
             assert(false)
             return
         }
@@ -28,7 +28,6 @@ class RawFile {
 
         var fileData: Data
         do {
-//            let before = Date().timeIntervalSince1970
             fileData = try Data(contentsOf: fileURL)
             var parser = Parser(data: fileData)
             var offset = 0
@@ -41,7 +40,6 @@ class RawFile {
                 let blobRange = (headerLength + offset) ..< (Int(blobHeader.datasize) + headerLength + offset)
                 let blob = try OSMPBF_Blob(serializedData: parser.data.subdata(in: blobRange))
                 let compressedData = blob.zlibData.dropFirst(2) // blob.zlibData.subdata(in: 2..<blob.zlibData.count)
-                //zlibData[1...2
                 let decompressedData = try (compressedData as NSData).decompressed(using: .zlib)
                 switch blobHeader.type {
                 case "OSMHeader":
@@ -50,12 +48,6 @@ class RawFile {
                 case "OSMData":
                     let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
                     primitiveBLocks.append(primitiveBlock)
-//                    for var primitiveGroup in primitiveBlock.primitivegroup {
-//                        /// Handle nodes(DenseNode) and print
-//                        handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity, stringTable: primitiveBlock.stringtable)
-//                        /// Handle ways and print their values
-//                        handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
-//                    }
                 default:
                     print("Bad")
                 }
@@ -67,8 +59,7 @@ class RawFile {
             }
 //            nodes = nodes.filter({ references[$0.id] != nil })
             print("File opened")
-            let after = Date().timeIntervalSince1970
-            print("Took \((after - before)) seconds")
+            
         } catch {
 //            print((error as NSError).userInfo)
             print(error.localizedDescription)
@@ -85,6 +76,7 @@ class RawFile {
         print("References: \(primitiveBlocksCount)")
         print("Tasks: \(tasks)")
         
+        print(Date().timeIntervalSince1970)
         self.parallelProcessingQueue.sync {
             DispatchQueue.concurrentPerform(iterations: tasks) { offset in
                 let startIndex = offset * entriesPerTask
@@ -109,13 +101,16 @@ class RawFile {
                         dictToAdd.merge(arrayDictAppender.dictForAppending) { $0 + $1 }
                     }
                 }
-                self.serialSyncQueue.async {
+                self.serialSyncQueue.sync {
                     self.nodes.append(contentsOf: nodesToAdd)
                     self.ways.append(contentsOf: waysToAdd)
                     self.references.merge(dictToAdd) { $0 + $1 }
+                    print(Date().timeIntervalSince1970)
                 }
             }
         }
+        print("\(nodes.count) - \(ways.count) - \(references.count)")
+        
     }
     
     func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
@@ -169,50 +164,14 @@ class RawFile {
 //                }
 //            }
         }
-//        let afterW = Date().timeIntervalSince1970
-//        print("Took \(afterW - beforeW) seconds")
         return handledNodes
     }
     
     func handleWays(primitiveGroup: OSMPBF_PrimitiveGroup, stringTable: OSMPBF_StringTable) ->  ArrayDictAppender {
-//        print("Handling ways")
-//        let referencesCount = primitiveGroup.ways.count
-//        let entriesPerTask = 1000
-//        let tasks = referencesCount / entriesPerTask
         var handledWays = [WayNew]()
         var handledDictionary = [Int: [WayNew]]()
         
-//        self.parallelProcessingQueue.sync {
-//            DispatchQueue.concurrentPerform(iterations: tasks) { offset in
-//                let startIndex = offset * entriesPerTask
-//                var endIndex = startIndex + entriesPerTask
-//                if endIndex > primitiveGroup.ways.count {
-//                    endIndex = primitiveGroup.ways.count
-//                }
-//                let waysInOffset = primitiveGroup.ways[startIndex..<endIndex]
-//                for way in waysInOffset {
-//                    var shouldAppend = false
-//                    var keyVal = [String: String]()
-//                    for (key, value) in zip(way.keys, way.vals) {
-//                        let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
-//                        if keyString == "highway" {
-//                            shouldAppend = true
-//                        }
-//                        let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
-//                        keyVal[keyString] = valString
-//                    }
-//                    var deltaDecoderID = DeltaDecoder(previous: 0)
-//                    var nodeRefs = [Int]()
-//                    for ref in way.refs {
-//                        deltaDecoderID.previous = deltaDecoderID.previous + Int(ref)
-//                        nodeRefs.append(deltaDecoderID.previous)
-//                    }
-//                }
-//            }
-//        }
-        
         for way in primitiveGroup.ways {
-//            let beforeW = Date().timeIntervalSince1970
             var shouldAppend = false
             var keyVal = [String: String]()
             for (key, value) in zip(way.keys, way.vals) {
@@ -241,10 +200,12 @@ class RawFile {
                     }
                 }
             }
-//            let afterW = Date().timeIntervalSince1970
-//            print("Took \(afterW - beforeW) seconds")
         }
         return ArrayDictAppender(ways: handledWays, dict: handledDictionary)
+    }
+    
+    func cleanPrimitiveBlocks() {
+        primitiveBLocks.removeAll()
     }
     
     func reduceMap() {
@@ -286,7 +247,7 @@ class RawFile {
                     }
                 }
                 
-                self.serialSyncQueue.async { // MARK: Is that correct, .sync?
+                self.serialSyncQueue.async { // MARK: Is that correct, .sync? | DispatchGroup
                     nodeIdsToStay.append(contentsOf: currentIterrationToStay)
                 }
             }
@@ -306,6 +267,13 @@ class RawFile {
         let after2 = Date().timeIntervalSince1970
         print("Second calculation \((after2 - before2)) seconds. Before2 = \(before2); After2 = \(after2)")
         print("Done deleting not needed nodes")
+    }
+    
+    func launch() {
+        self.parseFile()
+        self.readFile()
+        self.cleanPrimitiveBlocks()
+        self.reduceMap()
     }
 }
 
