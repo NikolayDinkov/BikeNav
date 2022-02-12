@@ -106,17 +106,13 @@ class RawFile {
                         nodesToAdd.append(contentsOf: nodesReturned)
                         let arrayDictAppender = handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
                         waysToAdd.append(contentsOf: arrayDictAppender.waysForAppending)
-                        dictToAdd.merge(arrayDictAppender.dictForAppending) { <#[WayNew]#>, <#[WayNew]#> in
-                            <#code#>
-                        }
+                        dictToAdd.merge(arrayDictAppender.dictForAppending) { $0 + $1 }
                     }
                 }
                 self.serialSyncQueue.async {
                     self.nodes.append(contentsOf: nodesToAdd)
                     self.ways.append(contentsOf: waysToAdd)
-                    self.references.merge(dictToAdd) { <#[WayNew]#>, <#[WayNew]#> in
-                        <#code#>
-                    }
+                    self.references.merge(dictToAdd) { $0 + $1 }
                 }
             }
         }
