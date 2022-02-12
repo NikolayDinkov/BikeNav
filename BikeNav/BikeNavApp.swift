@@ -15,7 +15,8 @@ struct BikeNavApp: App {
         WindowGroup {
             ContentView()
                 .onAppear {
-                    rawFile.openFile()
+                    rawFile.parseFile()
+                    rawFile.readFile()
                     rawFile.reduceMap()
                 }
         }

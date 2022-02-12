@@ -19,3 +19,7 @@ struct DenseNodeNew {
         self.longitude = lonCalculated
     }
 }
+
+extension DenseNodeNew: Equatable {
+    
+}

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5A3CAE9527B7CFBE006698D5 /* ArrayDictAppender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */; };
 		5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */; };
 		5A9274E727A2CDF20070EEA3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274E627A2CDF20070EEA3 /* ContentView.swift */; };
 		5A9274E927A2CDF40070EEA3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5A9274E827A2CDF40070EEA3 /* Assets.xcassets */; };
@@ -22,6 +23,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayDictAppender.swift; sourceTree = "<group>"; };
 		5A9274E127A2CDF20070EEA3 /* BikeNav.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeNav.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BikeNavApp.swift; sourceTree = "<group>"; };
 		5A9274E627A2CDF20070EEA3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -118,6 +120,7 @@
 				5A9274F327A2CEAA0070EEA3 /* RawFile.swift */,
 				5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */,
 				5A92750827AD50360070EEA3 /* WayNew.swift */,
+				5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */,
 			);
 			path = FileWork;
 			sourceTree = "<group>";
@@ -204,6 +207,7 @@
 				5A9274F827A2CEAA0070EEA3 /* Fileformat.swift in Sources */,
 				5A9274E727A2CDF20070EEA3 /* ContentView.swift in Sources */,
 				5A9274F727A2CEAA0070EEA3 /* RawFile.swift in Sources */,
+				5A3CAE9527B7CFBE006698D5 /* ArrayDictAppender.swift in Sources */,
 				5A9274F927A2CEAA0070EEA3 /* osmformat.swift in Sources */,
 				5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */,
 				5A92750927AD50360070EEA3 /* WayNew.swift in Sources */,
