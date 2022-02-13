@@ -17,24 +17,26 @@ class RawFile {
     let fileManager: FileManager = .default
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
-    var references: [Int: [WayNew]] = [Int: [WayNew]]()
+    var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
     
-    func parseFile() {
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
+    func readFile() {
+        print("Reading the file")
+//        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
+        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
+
             assert(false)
             return
         }
         let before = Date().timeIntervalSince1970
 
+        let readingGroup = DispatchGroup() // Sync blobs decoding
         var fileData: Data
         do {
             fileData = try Data(contentsOf: fileURL)
             var parser = Parser(data: fileData)
-            var offset = 0
+            let offset = 0
             while parser.data.count > 0 { // MARK: Cannot use threads for the reading, but can for handling
-//            while offset < parser.data.count {
                 let headerLength = Int(parser.parseLEUInt32()!)
-//                offset += 4
                 let headerRange = offset ..< (headerLength + offset)
                 let blobHeader = try OSMPBF_BlobHeader(serializedData: parser.data.subdata(in: headerRange))
                 let blobRange = (headerLength + offset) ..< (Int(blobHeader.datasize) + headerLength + offset)
@@ -43,16 +45,27 @@ class RawFile {
                 let decompressedData = try (compressedData as NSData).decompressed(using: .zlib)
                 switch blobHeader.type {
                 case "OSMHeader":
-                    let headerBlock = try OSMPBF_HeaderBlock(serializedData: decompressedData as Data)
-                    print("Header")
+//                    let headerBlock = try OSMPBF_HeaderBlock(serializedData: decompressedData as Data)
+                    break
                 case "OSMData":
-                    let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
-                    primitiveBLocks.append(primitiveBlock)
+                    readingGroup.enter() // Start a task
+                    parallelProcessingQueue.async {
+                        do {
+                            let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
+                            self.serialSyncQueue.async {
+                                self.primitiveBLocks.append(primitiveBlock)
+                                readingGroup.leave() // Finish the task
+                            }
+                        } catch {
+                            print(error.localizedDescription)
+                            assert(false)
+                            readingGroup.leave() // Task should also be finished in case of an error to allow the execution to continue
+                        }
+                    }
                 default:
                     print("Bad")
                 }
                 parser.data = parser.data.dropFirst(headerLength + Int(blobHeader.datasize))
-//                offset = offset + headerLength + Int(blobHeader.datasize)
             }
             if let idx = nodes.firstIndex(where: { references[$0.id] == nil }) {
                 nodes.remove(at: idx)
@@ -61,22 +74,26 @@ class RawFile {
             print("File opened")
             
         } catch {
-//            print((error as NSError).userInfo)
             print(error.localizedDescription)
             assert(false)
             return
         }
+
+        readingGroup.wait() // Execution will stop here until the number of .enter() is balanced by the number of .leave() in the parallel closures
+        let after = Date().timeIntervalSince1970
+        print("Read in \(after - before) seconds")
     }
     
-    func readFile() {
-        print("Reading the file")
+    func parseFile() {
+        print("\nParsing the file")
         let primitiveBlocksCount = primitiveBLocks.count
-        let entriesPerTask = 70
+        let entriesPerTask = primitiveBlocksCount / ProcessInfo.processInfo.processorCount
         let tasks = primitiveBlocksCount / entriesPerTask
         print("References: \(primitiveBlocksCount)")
         print("Tasks: \(tasks)")
-        
-        print(Date().timeIntervalSince1970)
+
+        let before = Date().timeIntervalSince1970
+
         self.parallelProcessingQueue.sync {
             DispatchQueue.concurrentPerform(iterations: tasks) { offset in
                 let startIndex = offset * entriesPerTask
@@ -92,8 +109,8 @@ class RawFile {
                 var waysToAdd = [WayNew]()
                 var dictToAdd = [Int: [WayNew]]()
                 
-                for var primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
-                    for var primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
+                for primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
+                    for primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
                         let nodesReturned = handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity, stringTable: primitiveBlock.stringtable)
                         nodesToAdd.append(contentsOf: nodesReturned)
                         let arrayDictAppender = handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
@@ -101,20 +118,19 @@ class RawFile {
                         dictToAdd.merge(arrayDictAppender.dictForAppending) { $0 + $1 }
                     }
                 }
-                self.serialSyncQueue.sync {
+                self.serialSyncQueue.sync { // MARK: Can we use here DispatchGroup, because it takes some time
                     self.nodes.append(contentsOf: nodesToAdd)
                     self.ways.append(contentsOf: waysToAdd)
                     self.references.merge(dictToAdd) { $0 + $1 }
-                    print(Date().timeIntervalSince1970)
                 }
             }
         }
         print("\(nodes.count) - \(ways.count) - \(references.count)")
-        
+        let after = Date().timeIntervalSince1970
+        print("Parsed in \(after - before) seconds")
     }
     
     func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
-        let beforeW = Date().timeIntervalSince1970
         var handledNodes = [DenseNodeNew]()
 //        let keyValArray = primitiveGroup.dense.keysVals.reduce([[Int32]]()) { partialResult, current in
 //            if current != 0 {
@@ -133,7 +149,6 @@ class RawFile {
 //                return partialResultMy
 //            }
 //        }
-
 //        let idKV = zip(primitiveGroup.dense.id, keyValArray)
         let latLon = zip(primitiveGroup.dense.lat, primitiveGroup.dense.lon)
 
@@ -212,7 +227,7 @@ class RawFile {
         print("\nReducing nodes & ways") // FIXME: what if road has turns but its the same way and node represent the turn, or how are we going to navigate if we do not have the distance or way is not finishing in the node
         
         let referencesCount = references.keys.count
-        let entriesPerTask = 1000
+        let entriesPerTask = referencesCount / ProcessInfo.processInfo.processorCount
         let tasks = referencesCount / entriesPerTask
         var nodeIdsToStay: [Int] = []
         
@@ -247,31 +262,28 @@ class RawFile {
                     }
                 }
                 
-                self.serialSyncQueue.async { // MARK: Is that correct, .sync? | DispatchGroup
+                self.serialSyncQueue.sync { // MARK: Is that correct, .sync? | DispatchGroup | We need for sure to be .sync or maybe we could use DispatchGroup
                     nodeIdsToStay.append(contentsOf: currentIterrationToStay)
                 }
             }
         }
         let after = Date().timeIntervalSince1970
-        print("Took \((after - before)) seconds")
+        print("Reduced in \((after - before)) seconds")
         // TODO: remove nodes from nodeIdsToRemove | Maybe use threads | Can we run this in the background | I don't think we can use threads here
-        print(nodeIdsToStay.count)
-        let before2 = Date().timeIntervalSince1970
+        print("Nodes which we want: \(nodeIdsToStay.count)")
         for nodeId in nodeIdsToStay {
 //            if let idx = nodes.firstIndex(where: { $0.id == nodeId }) { // MARK: Index getting maybe with threads and then removing from array would be faster
 //                nodes.remove(at: idx)
 //            }
             nodes = nodes.filter({ $0.id == nodeId })
-            references[nodeId] = nil // MARK: This is working the other way around
+            references[nodeId] = nil // MARK: This is working the other way around | if we remove the array it will be easier because we will use only nodesToRemove
         }
-        let after2 = Date().timeIntervalSince1970
-        print("Second calculation \((after2 - before2)) seconds. Before2 = \(before2); After2 = \(after2)")
         print("Done deleting not needed nodes")
     }
     
     func launch() {
-        self.parseFile()
         self.readFile()
+        self.parseFile()
         self.cleanPrimitiveBlocks()
         self.reduceMap()
     }
