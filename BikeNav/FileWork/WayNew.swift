@@ -47,3 +47,5 @@ struct WayNew {
 extension WayNew: Hashable {
     
 }
+
+//struct 

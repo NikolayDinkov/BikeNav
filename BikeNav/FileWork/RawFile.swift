@@ -21,8 +21,8 @@ class RawFile {
     
     func readFile() {
         print("Reading the file")
-//        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
+        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
+//        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
 
             assert(false)
             return
@@ -198,21 +198,22 @@ class RawFile {
                 keyVal[keyString] = valString
             }
             
+            guard shouldAppend else { continue }
+            
             var deltaDecoderID = DeltaDecoder(previous: 0)
             var nodeRefs = [Int]()
             for ref in way.refs {
                 deltaDecoderID.previous = deltaDecoderID.previous + Int(ref)
                 nodeRefs.append(deltaDecoderID.previous)
             }
-            if shouldAppend == true {
-                let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
-                handledWays.append(newWay)
-                for id in newWay.nodeRefs {
-                    if handledDictionary[id] == nil {
-                        handledDictionary[id] = [newWay]
-                    } else {
-                        handledDictionary[id]!.append(newWay)
-                    }
+            
+            let newWay = WayNew(id: Int(way.id), keyVal: keyVal, nodeRefs: nodeRefs)
+            handledWays.append(newWay)
+            for id in newWay.nodeRefs {
+                if handledDictionary[id] == nil {
+                    handledDictionary[id] = [newWay]
+                } else {
+                    handledDictionary[id]!.append(newWay)
                 }
             }
         }
@@ -271,13 +272,29 @@ class RawFile {
         print("Reduced in \((after - before)) seconds")
         // TODO: remove nodes from nodeIdsToRemove | Maybe use threads | Can we run this in the background | I don't think we can use threads here
         print("Nodes which we want: \(nodeIdsToStay.count)")
+        
+        let start = Date().timeIntervalSince1970
+        var newReferences = [Int: [WayNew]]()
+        print("Start filtering dictionary")
         for nodeId in nodeIdsToStay {
-//            if let idx = nodes.firstIndex(where: { $0.id == nodeId }) { // MARK: Index getting maybe with threads and then removing from array would be faster
-//                nodes.remove(at: idx)
-//            }
-            nodes = nodes.filter({ $0.id == nodeId })
-            references[nodeId] = nil // MARK: This is working the other way around | if we remove the array it will be easier because we will use only nodesToRemove
+            newReferences[nodeId] = references[nodeId]
         }
+        references = newReferences
+        let end = Date().timeIntervalSince1970
+        print("Filtered dictionary in \(end - start) seconds")
+
+//        for (crossroadNodeId, crossroadWays) in references {
+//            for way in crossroadWays {
+//                for nodeRef in way.nodeRefs {
+//
+//                }
+//            }
+//        }
+        
+        for (nodeId, ways) in references {
+            
+        }
+        
         print("Done deleting not needed nodes")
     }
     

@@ -20,6 +20,5 @@ struct DenseNodeNew {
     }
 }
 
-extension DenseNodeNew: Equatable {
-    
-}
+extension DenseNodeNew: Equatable {}
+extension DenseNodeNew: Hashable {}
