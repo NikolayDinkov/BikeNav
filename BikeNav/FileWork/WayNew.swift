@@ -31,7 +31,7 @@ struct WayNew {
                 print("No id of node which is bad")
                 assert(false)
             }
-            
+
             if previousLat == 0.0 && previousLon == 0.0 {
                 previousLat = nodes[idx].latitude
                 previousLon = nodes[idx].longitude

@@ -7,13 +7,20 @@
 import Foundation
 import SwiftProtobuf
 
-
+//MARK: We use that there could be only one type in primitivegroups
 class RawFile {
-    var primitiveBLocks: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
-    
     let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
     let parallelProcessingQueue = DispatchQueue(label: "parallel.dictionary", qos: .userInteractive, attributes: [.concurrent])
+    
     let fileManager: FileManager = .default
+
+    
+    var primitiveBLocks: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    
+    var primitiveBLocksWithNodes: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    var primitiveBLocksWithWays: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    
+    
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
     var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
@@ -81,9 +88,35 @@ class RawFile {
         print("Read in \(after - before) seconds")
     }
     
-    func parseFile() {
-        print("\nParsing the file")
-        let primitiveBlocksCount = primitiveBLocks.count
+    func handlePrimitiveBlocks() {
+        let before = Date().timeIntervalSince1970
+        var forWays = false
+        var forNode = false
+        for primitiveBLock in primitiveBLocks {
+            for primitiveGroup in primitiveBLock.primitivegroup {
+                if primitiveGroup.hasDense == true {
+                    forNode = true
+                }
+                if primitiveGroup.ways.count != 0 {
+                    forWays = true
+                }
+            }
+            if forNode == true {
+                primitiveBLocksWithNodes.append(primitiveBLock)
+            }
+            if forWays == true {
+                primitiveBLocksWithWays.append(primitiveBLock)
+            }
+        }
+        primitiveBLocks.removeAll()
+        let after = Date().timeIntervalSince1970
+        print("Read in \(after - before) seconds")
+        
+    }
+    
+    func parseWaysFromFile() {
+        print("\nParsing the ways")
+        let primitiveBlocksCount = primitiveBLocksWithWays.count
         let entriesPerTask = primitiveBlocksCount / ProcessInfo.processInfo.processorCount
         let tasks = primitiveBlocksCount / entriesPerTask
         print("References: \(primitiveBlocksCount)")
@@ -100,34 +133,73 @@ class RawFile {
                 } else {
                     endIndex = startIndex + entriesPerTask
                 }
-                let primitiveBlocksForIteration = primitiveBLocks[startIndex..<endIndex]
+                let primitiveBlocksForIteration = primitiveBLocksWithWays[startIndex..<endIndex]
                 
-                var nodesToAdd = [DenseNodeNew]()
                 var waysToAdd = [WayNew]()
                 var dictToAdd = [Int: [WayNew]]()
                 
                 for primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
                     for primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
-                        let nodesReturned = handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity, stringTable: primitiveBlock.stringtable)
-                        nodesToAdd.append(contentsOf: nodesReturned)
                         let arrayDictAppender = handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
                         waysToAdd.append(contentsOf: arrayDictAppender.waysForAppending)
                         dictToAdd.merge(arrayDictAppender.dictForAppending) { $0 + $1 }
                     }
                 }
                 self.serialSyncQueue.sync { // MARK: Can we use here DispatchGroup, because it takes some time
-                    self.nodes.append(contentsOf: nodesToAdd)
                     self.ways.append(contentsOf: waysToAdd)
                     self.references.merge(dictToAdd) { $0 + $1 }
                 }
             }
         }
-        if let idx = nodes.firstIndex(where: { references[$0.id] == nil }) {
-            nodes.remove(at: idx)
-        }
-        print("\(nodes.count) - \(ways.count) - \(references.count)")
+        primitiveBLocksWithWays.removeAll()
+        
         let after = Date().timeIntervalSince1970
         print("Parsed in \(after - before) seconds")
+        print("\(nodes.count) - \(ways.count) - \(references.count)")
+        
+    }
+    
+    func parseNodes() {
+        print("\nParsing the nodes")
+        let primitiveBlocksCount = primitiveBLocksWithNodes.count
+        let entriesPerTask = primitiveBlocksCount / ProcessInfo.processInfo.processorCount
+        let tasks = primitiveBlocksCount / entriesPerTask
+        print("References: \(primitiveBlocksCount)")
+        print("Tasks: \(tasks)")
+        
+        let before = Date().timeIntervalSince1970
+
+        self.parallelProcessingQueue.sync {
+            DispatchQueue.concurrentPerform(iterations: tasks) { offset in
+                let startIndex = offset * entriesPerTask
+                let endIndex: Int
+                if offset == tasks - 1 {
+                    endIndex = startIndex + (primitiveBlocksCount - (entriesPerTask * tasks) + entriesPerTask)
+                } else {
+                    endIndex = startIndex + entriesPerTask
+                }
+                let primitiveBlocksForIteration = primitiveBLocksWithNodes[startIndex..<endIndex]
+                
+                var nodesToAdd = [DenseNodeNew]()
+                
+                for primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
+                    for primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
+                        let nodesReturned = handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity, stringTable: primitiveBlock.stringtable)
+                            nodesToAdd.append(contentsOf: nodesReturned)
+                    }
+                }
+                self.serialSyncQueue.sync { // MARK: Can we use here DispatchGroup, because it takes some time
+                    self.nodes.append(contentsOf: nodesToAdd)
+                }
+            }
+        }
+        
+        primitiveBLocksWithNodes.removeAll()
+        
+        let after = Date().timeIntervalSince1970
+        print("Parsed in \(after - before) seconds")
+        print("\(nodes.count) - \(ways.count) - \(references.count)")
+        
     }
     
     func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
@@ -164,10 +236,13 @@ class RawFile {
             deltaDecoderLat.previous = deltaDecoderLat.previous + Int(lat)
             deltaDecoderLon.previous = deltaDecoderLon.previous + Int(lon)
             
-            let newNode = DenseNodeNew(id: deltaDecoderID.previous,
-                                       latCalculated: 0.000000001 * Double((Int(latOffset) + (Int(granularity) * deltaDecoderLat.previous))),
-                                       lonCalculated: 0.000000001 * Double((Int(lonOffset) + (Int(granularity) * deltaDecoderLon.previous))))
-            handledNodes.append(newNode)
+            if references.keys.contains(deltaDecoderID.previous) {
+                let newNode = DenseNodeNew(id: deltaDecoderID.previous,
+                                           latCalculated: 0.000000001 * Double((Int(latOffset) + (Int(granularity) * deltaDecoderLat.previous))),
+                                           lonCalculated: 0.000000001 * Double((Int(lonOffset) + (Int(granularity) * deltaDecoderLon.previous))))
+                handledNodes.append(newNode)
+            }
+            
 //            nodes.append(newNode)
 //            print()
 //            print(newNode)
@@ -221,10 +296,6 @@ class RawFile {
             }
         }
         return ArrayDictAppender(ways: handledWays, dict: handledDictionary)
-    }
-    
-    func cleanPrimitiveBlocks() {
-        primitiveBLocks.removeAll()
     }
     
     func reduceMap() {
@@ -307,8 +378,9 @@ class RawFile {
     
     func launch() {
         self.readFile()
-        self.parseFile()
-        self.cleanPrimitiveBlocks()
+        self.handlePrimitiveBlocks()
+        self.parseWaysFromFile()
+        self.parseNodes()
         self.reduceMap()
     }
 
@@ -341,8 +413,8 @@ class RawFile {
                 return []
             }
             let nodesPrev = way.nodeRefs[0 ..< crossroadIndex].reversed()
-//            var previousLat: Double = nodes[crossroadIndex].latitude
-//            var previousLon: Double = nodes[crossroadIndex].longitude
+//            var previousLat: Double = nodes[nodes.first(where: )].latitude
+            var previousLon: Double = nodes[crossroadIndex].longitude
             let nodesNext = way.nodeRefs[(crossroadIndex + 1) ... (way.nodeRefs.count - 1)] //MARK: Is (index + 1) ok?
             
             otherCrossroadId = nodesPrev.first(where: { id in
