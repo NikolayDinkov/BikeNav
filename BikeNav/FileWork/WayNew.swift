@@ -48,4 +48,17 @@ extension WayNew: Hashable {
     
 }
 
-//struct 
+struct WaySmaller {
+    let id: Int
+    let name: String
+    let length: Double
+    
+    let nodeRefs: [Int]
+    
+    init(id: Int, name: String, length: Double, nodeRefs: [Int]) {
+        self.id = id
+        self.name = name
+        self.length = length
+        self.nodeRefs = nodeRefs
+    }
+}

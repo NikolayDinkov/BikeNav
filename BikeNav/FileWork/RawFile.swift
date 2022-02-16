@@ -4,7 +4,6 @@
 //
 //  Created by Nikolay Dinkov on 16.12.21.
 //
-
 import Foundation
 import SwiftProtobuf
 
@@ -19,11 +18,12 @@ class RawFile {
     var ways: [WayNew] = [WayNew]()
     var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
     
+    var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
+    
     func readFile() {
         print("Reading the file")
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-211215.osm", withExtension: ".pbf") else {
+        guard let fileURL = Bundle.main.url(forResource: "bulgaria-220213.osm", withExtension: ".pbf") else {
 //        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
-
             assert(false)
             return
         }
@@ -66,9 +66,6 @@ class RawFile {
                     print("Bad")
                 }
                 parser.data = parser.data.dropFirst(headerLength + Int(blobHeader.datasize))
-            }
-            if let idx = nodes.firstIndex(where: { references[$0.id] == nil }) {
-                nodes.remove(at: idx)
             }
 //            nodes = nodes.filter({ references[$0.id] != nil })
             print("File opened")
@@ -124,6 +121,9 @@ class RawFile {
                     self.references.merge(dictToAdd) { $0 + $1 }
                 }
             }
+        }
+        if let idx = nodes.firstIndex(where: { references[$0.id] == nil }) {
+            nodes.remove(at: idx)
         }
         print("\(nodes.count) - \(ways.count) - \(references.count)")
         let after = Date().timeIntervalSince1970
@@ -188,17 +188,20 @@ class RawFile {
         
         for way in primitiveGroup.ways {
             var shouldAppend = false
+            var hasName = false
             var keyVal = [String: String]()
             for (key, value) in zip(way.keys, way.vals) {
                 let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
                 if keyString == "highway" {
                     shouldAppend = true
+                } else if keyString == "name" {
+                    hasName = true
                 }
                 let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
                 keyVal[keyString] = valString
             }
             
-            guard shouldAppend else { continue }
+            guard shouldAppend, hasName else { continue }
             
             var deltaDecoderID = DeltaDecoder(previous: 0)
             var nodeRefs = [Int]()
@@ -273,26 +276,30 @@ class RawFile {
         // TODO: remove nodes from nodeIdsToRemove | Maybe use threads | Can we run this in the background | I don't think we can use threads here
         print("Nodes which we want: \(nodeIdsToStay.count)")
         
-        let start = Date().timeIntervalSince1970
+        let idTest = [273346029, 1261063975, 277580507, 674039590, 1261064074] //273346029, 1261063975, 277580507, 674039590,
         var newReferences = [Int: [WayNew]]()
-        print("Start filtering dictionary")
-        for nodeId in nodeIdsToStay {
+        for nodeId in idTest {
             newReferences[nodeId] = references[nodeId]
+            
         }
         references = newReferences
-        let end = Date().timeIntervalSince1970
-        print("Filtered dictionary in \(end - start) seconds")
 
-//        for (crossroadNodeId, crossroadWays) in references {
-//            for way in crossroadWays {
-//                for nodeRef in way.nodeRefs {
-//
-//                }
-//            }
-//        }
-        
+        print("Finding crossroad relations")
+
+        // TODO
+        // concurrentPerform - tasks references.keys.count / ProcessInfo.processInfo.processorCount
+        // for nodeId in Array(references.keys)[offset + entriesPerTask]
+        // ways = references[nodeId]
         for (nodeId, ways) in references {
-            
+            let start = Date().timeIntervalSince1970
+            print("Started at \(nodeId)")
+            for way in ways {
+                let crossroads = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
+                print("From way: \(way.id) found nodes - \(crossroads)")
+                
+            }
+            let end = Date().timeIntervalSince1970
+            print("Found relations for \(nodeId) in \(end - start) seconds")
         }
         
         print("Done deleting not needed nodes")
@@ -304,6 +311,84 @@ class RawFile {
         self.cleanPrimitiveBlocks()
         self.reduceMap()
     }
+
+    // Either find the next nodeRef that is also a crossroad in references
+    // Or if there is no next nodeRef - incomplete way - loop through self.ways to find the next segment where there is a crossroad
+    // If no next crossroad is found in self.ways - the road starts not on a crossroad - the very first/last node must become a crossroad
+    private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [Int?] { // MARK: Maybe we can manage the no-names with their id's
+        let currentNodeIndex = way.nodeRefs.firstIndex(of: startCrossroadId)!
+        var nextCrossroadId: Int? = nil
+        var otherCrossroadId: Int? = nil
+
+        switch currentNodeIndex {
+        case let x where x == 0:
+            nextCrossroadId = way.nodeRefs.first(where: { $0 != startCrossroadId && nodeIdsToStay.contains($0) })
+            if nextCrossroadId == nil {
+                return [firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay)]//.compactMap { $0 } // MARK: change last/start , true/false
+            }
+            return [nextCrossroadId]
+        case let x where x == way.nodeRefs.count - 1:
+            nextCrossroadId = way.nodeRefs.last(where: { $0 != startCrossroadId && nodeIdsToStay.contains($0) })
+            if nextCrossroadId == nil {
+                return [firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay)]//.compactMap { $0 }
+            }
+            return [nextCrossroadId]
+        default:
+            var otherWayLength: Double? = nil
+            var nextWayLength: Double? = nil
+            guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }) else {
+                print("Not good")
+                return []
+            }
+            let nodesPrev = way.nodeRefs[0 ..< crossroadIndex].reversed()
+//            var previousLat: Double = nodes[crossroadIndex].latitude
+//            var previousLon: Double = nodes[crossroadIndex].longitude
+            let nodesNext = way.nodeRefs[(crossroadIndex + 1) ... (way.nodeRefs.count - 1)] //MARK: Is (index + 1) ok?
+            
+            otherCrossroadId = nodesPrev.first(where: { id in
+//                way.nodeRefs[crossroadIndex]
+                return nodeIdsToStay.contains(id)
+                
+            })
+            if otherCrossroadId == nil {
+                otherCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay) // MARK: Not yet checked out | true false thing should be checked
+            }
+            
+            nextCrossroadId = nodesNext.first(where: { nodeIdsToStay.contains($0) })
+            if nextCrossroadId == nil {
+                nextCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay)
+            }
+
+            return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
+        }
+
+        return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
+    }
+
+    private func firstCrossroad(referenceNode: Int, name: String, id: Int, searchFromNodesFirst: Bool, nodeIdsToStay: [Int]) -> Int? {
+//        print("firstCrossroad called: \(referenceNode)")
+        
+        for way in ways {
+            guard way.keyVal["name"] == name, way.id != id else { continue }
+            if searchFromNodesFirst {
+                guard way.nodeRefs.first == referenceNode else { continue }
+                guard let crossroadId = way.nodeRefs.first(where: { nodeIdsToStay.contains($0) }) else {
+                    return firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay)
+                }
+                return crossroadId
+            } else {
+                guard way.nodeRefs.last == referenceNode else { continue }
+                guard let crossroadId = way.nodeRefs.last(where: { nodeIdsToStay.contains($0) }) else {
+                    return firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay)
+                }
+                return crossroadId
+            }
+        }
+
+        // FIXME if no other crossroad is found - find the very last (or first depending on start direction) node of the road
+        return referenceNode
+    }
+
 }
 
 struct DeltaDecoder {

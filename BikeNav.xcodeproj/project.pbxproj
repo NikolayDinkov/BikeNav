@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		5A3CAE9527B7CFBE006698D5 /* ArrayDictAppender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */; };
+		5A3CAE9727BA9434006698D5 /* bulgaria-220213.osm.pbf in Resources */ = {isa = PBXBuildFile; fileRef = 5A3CAE9627BA9434006698D5 /* bulgaria-220213.osm.pbf */; };
 		5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */; };
 		5A9274E727A2CDF20070EEA3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274E627A2CDF20070EEA3 /* ContentView.swift */; };
 		5A9274E927A2CDF40070EEA3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5A9274E827A2CDF40070EEA3 /* Assets.xcassets */; };
@@ -24,6 +25,7 @@
 
 /* Begin PBXFileReference section */
 		5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayDictAppender.swift; sourceTree = "<group>"; };
+		5A3CAE9627BA9434006698D5 /* bulgaria-220213.osm.pbf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bulgaria-220213.osm.pbf"; sourceTree = "<group>"; };
 		5A9274E127A2CDF20070EEA3 /* BikeNav.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeNav.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BikeNavApp.swift; sourceTree = "<group>"; };
 		5A9274E627A2CDF20070EEA3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -91,6 +93,7 @@
 		5A92750127ABD44B0070EEA3 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				5A3CAE9627BA9434006698D5 /* bulgaria-220213.osm.pbf */,
 				5A92750A27B12C8F0070EEA3 /* bulgaria-140101.osm.pbf */,
 				5A9274F227A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf */,
 			);
@@ -190,6 +193,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5A9274EC27A2CDF40070EEA3 /* Preview Assets.xcassets in Resources */,
+				5A3CAE9727BA9434006698D5 /* bulgaria-220213.osm.pbf in Resources */,
 				5A92750B27B12E290070EEA3 /* bulgaria-140101.osm.pbf in Resources */,
 				5A9274E927A2CDF40070EEA3 /* Assets.xcassets in Resources */,
 				5A9274F627A2CEAA0070EEA3 /* bulgaria-211215.osm.pbf in Resources */,
