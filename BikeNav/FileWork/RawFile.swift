@@ -6,6 +6,7 @@
 //
 import Foundation
 import SwiftProtobuf
+import CoreLocation
 
 //MARK: We use that there could be only one type in primitivegroups
 class RawFile {
@@ -14,12 +15,10 @@ class RawFile {
     
     let fileManager: FileManager = .default
 
-    
     var primitiveBLocks: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
     
     var primitiveBLocksWithNodes: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
     var primitiveBLocksWithWays: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
-    
     
     var nodes: [DenseNodeNew] = [DenseNodeNew]()
     var ways: [WayNew] = [WayNew]()
@@ -394,50 +393,125 @@ class RawFile {
 
         switch currentNodeIndex {
         case let x where x == 0:
-            nextCrossroadId = way.nodeRefs.first(where: { $0 != startCrossroadId && nodeIdsToStay.contains($0) })
-            if nextCrossroadId == nil {
-                return [firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay)]//.compactMap { $0 } // MARK: change last/start , true/false
-            }
-            return [nextCrossroadId]
-        case let x where x == way.nodeRefs.count - 1:
-            nextCrossroadId = way.nodeRefs.last(where: { $0 != startCrossroadId && nodeIdsToStay.contains($0) })
-            if nextCrossroadId == nil {
-                return [firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay)]//.compactMap { $0 }
-            }
-            return [nextCrossroadId]
-        default:
-            var otherWayLength: Double? = nil
-            var nextWayLength: Double? = nil
-            guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }) else {
+            guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
                 print("Not good")
                 return []
             }
+            var nextWayLength: Double? = nil
+            var previousLatNext: Double = crossroadNode.latitude
+            var previousLonNext: Double = crossroadNode.longitude
+            nextCrossroadId = way.nodeRefs.first(where: { id in
+                guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    print("BAD")
+                    return false
+                }
+                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+                if nextWayLength == nil {
+                    nextWayLength = distance
+                } else {
+                    nextWayLength! += distance
+                }
+                previousLatNext = crossroadNode.latitude
+                previousLonNext = crossroadNode.longitude
+                return nodeIdsToStay.contains(id) // id != startCrossroadId &&
+            })
+            if nextCrossroadId == nil {
+                return [firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!)]//.compactMap { $0 } // MARK: change last/start , true/false
+            }
+            return [nextCrossroadId]
+        case let x where x == way.nodeRefs.count - 1:
+            guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
+                print("Not good")
+                return []
+            }
+            var nextWayLength: Double? = nil
+            var previousLatNext: Double = crossroadNode.latitude
+            var previousLonNext: Double = crossroadNode.longitude
+            nextCrossroadId = way.nodeRefs.last(where: { id in
+                guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    print("BAD")
+                    return false
+                }
+                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+                if nextWayLength == nil {
+                    nextWayLength = distance
+                } else {
+                    nextWayLength! += distance
+                }
+                previousLatNext = crossroadNode.latitude
+                previousLonNext = crossroadNode.longitude
+                return nodeIdsToStay.contains(id) // id != startCrossroadId &&
+            })
+            if nextCrossroadId == nil {
+                return [firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!)]//.compactMap { $0 }
+            }
+            return [nextCrossroadId]
+        default:
+            guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }), let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
+                print("Not good")
+                return []
+            }
+            var otherWayLength: Double? = nil
+            var nextWayLength: Double? = nil
+            
             let nodesPrev = way.nodeRefs[0 ..< crossroadIndex].reversed()
-//            var previousLat: Double = nodes[nodes.first(where: )].latitude
-            var previousLon: Double = nodes[crossroadIndex].longitude
+            var previousLatPrev: Double = crossroadNode.latitude
+            var previousLonPrev: Double = crossroadNode.longitude
             let nodesNext = way.nodeRefs[(crossroadIndex + 1) ... (way.nodeRefs.count - 1)] //MARK: Is (index + 1) ok?
+            var previousLatNext: Double = crossroadNode.latitude
+            var previousLonNext: Double = crossroadNode.longitude
             
             otherCrossroadId = nodesPrev.first(where: { id in
-//                way.nodeRefs[crossroadIndex]
+                guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    print("BAD")
+                    return false
+                }
+                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                let distance = location.distance(from: CLLocation(latitude: previousLatPrev, longitude: previousLonPrev))
+                if otherWayLength == nil {
+                    otherWayLength = distance
+                } else {
+                    otherWayLength! += distance
+                }
+                previousLatPrev = crossroadNode.latitude
+                previousLonPrev = crossroadNode.longitude
                 return nodeIdsToStay.contains(id)
                 
             })
             if otherCrossroadId == nil {
-                otherCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay) // MARK: Not yet checked out | true false thing should be checked
+                otherCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: otherWayLength!) // MARK: Not yet checked out | true false thing should be checked
             }
             
-            nextCrossroadId = nodesNext.first(where: { nodeIdsToStay.contains($0) })
+            nextCrossroadId = nodesNext.first(where: { id in
+                guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    print("BAD")
+                    return false
+                }
+                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+                if nextWayLength == nil {
+                    nextWayLength = distance
+                } else {
+                    nextWayLength! += distance
+                }
+                previousLatNext = crossroadNode.latitude
+                previousLonNext = crossroadNode.longitude
+                return nodeIdsToStay.contains(id)
+            })
             if nextCrossroadId == nil {
-                nextCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay)
+                nextCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!) // MARK: Is the direction (last/first, true/false) correct
             }
 
+            
             return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
         }
 
         return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
     }
 
-    private func firstCrossroad(referenceNode: Int, name: String, id: Int, searchFromNodesFirst: Bool, nodeIdsToStay: [Int]) -> Int? {
+    private func firstCrossroad(referenceNode: Int, name: String, id: Int, searchFromNodesFirst: Bool, nodeIdsToStay: [Int], length: Double) -> Int {
 //        print("firstCrossroad called: \(referenceNode)")
         
         for way in ways {
@@ -445,13 +519,13 @@ class RawFile {
             if searchFromNodesFirst {
                 guard way.nodeRefs.first == referenceNode else { continue }
                 guard let crossroadId = way.nodeRefs.first(where: { nodeIdsToStay.contains($0) }) else {
-                    return firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay)
+                    return firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
                 }
                 return crossroadId
             } else {
                 guard way.nodeRefs.last == referenceNode else { continue }
                 guard let crossroadId = way.nodeRefs.last(where: { nodeIdsToStay.contains($0) }) else {
-                    return firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay)
+                    return firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
                 }
                 return crossroadId
             }
