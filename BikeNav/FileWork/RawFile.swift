@@ -8,25 +8,28 @@ import Foundation
 import SwiftProtobuf
 import CoreLocation
 
+typealias PartialDistance = (id: Int, distanceToPrevious: Double)
+typealias PairDistance = (idStart: Int, idEnd: Int, distanceToPrevious: Double)
+
 //MARK: We use that there could be only one type in primitivegroups
 class RawFile {
-    let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
-    let parallelProcessingQueue = DispatchQueue(label: "parallel.dictionary", qos: .userInteractive, attributes: [.concurrent])
+    private let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
+    private let parallelProcessingQueue = DispatchQueue(label: "parallel.dictionary", qos: .userInteractive, attributes: [.concurrent])
     
-    let fileManager: FileManager = .default
+    private let fileManager: FileManager = .default
 
-    var primitiveBLocks: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    private var primitiveBLocks: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
     
-    var primitiveBLocksWithNodes: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
-    var primitiveBLocksWithWays: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    private var primitiveBLocksWithNodes: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
+    private var primitiveBLocksWithWays: [OSMPBF_PrimitiveBlock] = [OSMPBF_PrimitiveBlock]()
     
-    var nodes: [DenseNodeNew] = [DenseNodeNew]()
-    var ways: [WayNew] = [WayNew]()
-    var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
+    private var nodes: [DenseNodeNew] = [DenseNodeNew]()
+    private var ways: [WayNew] = [WayNew]()
+    private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
     
-    var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
+    private var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
     
-    func readFile() {
+    private func readFile() {
         print("Reading the file")
         guard let fileURL = Bundle.main.url(forResource: "bulgaria-220213.osm", withExtension: ".pbf") else {
 //        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
@@ -87,7 +90,7 @@ class RawFile {
         print("Read in \(after - before) seconds")
     }
     
-    func handlePrimitiveBlocks() {
+    private func handlePrimitiveBlocks() {
         let before = Date().timeIntervalSince1970
         var forWays = false
         var forNode = false
@@ -113,7 +116,7 @@ class RawFile {
         
     }
     
-    func parseWaysFromFile() {
+    private func parseWaysFromFile() {
         print("\nParsing the ways")
         let primitiveBlocksCount = primitiveBLocksWithWays.count
         let entriesPerTask = primitiveBlocksCount / ProcessInfo.processInfo.processorCount
@@ -158,7 +161,7 @@ class RawFile {
         
     }
     
-    func parseNodes() {
+    private func parseNodes() {
         print("\nParsing the nodes")
         let primitiveBlocksCount = primitiveBLocksWithNodes.count
         let entriesPerTask = primitiveBlocksCount / ProcessInfo.processInfo.processorCount
@@ -201,7 +204,7 @@ class RawFile {
         
     }
     
-    func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
+    private func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
         var handledNodes = [DenseNodeNew]()
 //        let keyValArray = primitiveGroup.dense.keysVals.reduce([[Int32]]()) { partialResult, current in
 //            if current != 0 {
@@ -256,7 +259,7 @@ class RawFile {
         return handledNodes
     }
     
-    func handleWays(primitiveGroup: OSMPBF_PrimitiveGroup, stringTable: OSMPBF_StringTable) ->  ArrayDictAppender {
+    private func handleWays(primitiveGroup: OSMPBF_PrimitiveGroup, stringTable: OSMPBF_StringTable) ->  ArrayDictAppender {
         var handledWays = [WayNew]()
         var handledDictionary = [Int: [WayNew]]()
         
@@ -297,7 +300,7 @@ class RawFile {
         return ArrayDictAppender(ways: handledWays, dict: handledDictionary)
     }
     
-    func reduceMap() {
+    private func reduceMap() {
         print("\nReducing nodes & ways") // FIXME: what if road has turns but its the same way and node represent the turn, or how are we going to navigate if we do not have the distance or way is not finishing in the node
         
         let referencesCount = references.keys.count
@@ -374,19 +377,11 @@ class RawFile {
         
         print("Done deleting not needed nodes")
     }
-    
-    func launch() {
-        self.readFile()
-        self.handlePrimitiveBlocks()
-        self.parseWaysFromFile()
-        self.parseNodes()
-        self.reduceMap()
-    }
 
     // Either find the next nodeRef that is also a crossroad in references
     // Or if there is no next nodeRef - incomplete way - loop through self.ways to find the next segment where there is a crossroad
     // If no next crossroad is found in self.ways - the road starts not on a crossroad - the very first/last node must become a crossroad
-    private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [Int?] { // MARK: Maybe we can manage the no-names with their id's
+    private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [PairDistance] { // MARK: Maybe we can manage the no-names with their id's
         let currentNodeIndex = way.nodeRefs.firstIndex(of: startCrossroadId)!
         var nextCrossroadId: Int? = nil
         var otherCrossroadId: Int? = nil
@@ -397,144 +392,188 @@ class RawFile {
                 print("Not good")
                 return []
             }
-            var nextWayLength: Double? = nil
-            var previousLatNext: Double = crossroadNode.latitude
-            var previousLonNext: Double = crossroadNode.longitude
-            nextCrossroadId = way.nodeRefs.first(where: { id in
-                guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
-                    print("BAD")
-                    return false
-                }
-                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
-                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
-                if nextWayLength == nil {
-                    nextWayLength = distance
-                } else {
-                    nextWayLength! += distance
-                }
-                previousLatNext = crossroadNode.latitude
-                previousLonNext = crossroadNode.longitude
-                return nodeIdsToStay.contains(id) // id != startCrossroadId &&
-            })
-            if nextCrossroadId == nil {
-                return [firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!)]//.compactMap { $0 } // MARK: change last/start , true/false
-            }
-            return [nextCrossroadId]
+            let partialDistance = inBeginning(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId, nextCrossroadId: nextCrossroadId)
+            return [(startCrossroadId, partialDistance.id, partialDistance.distanceToPrevious)]
         case let x where x == way.nodeRefs.count - 1:
             guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
                 print("Not good")
                 return []
             }
-            var nextWayLength: Double? = nil
-            var previousLatNext: Double = crossroadNode.latitude
-            var previousLonNext: Double = crossroadNode.longitude
-            nextCrossroadId = way.nodeRefs.last(where: { id in
-                guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
-                    print("BAD")
-                    return false
-                }
-                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
-                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
-                if nextWayLength == nil {
-                    nextWayLength = distance
-                } else {
-                    nextWayLength! += distance
-                }
-                previousLatNext = crossroadNode.latitude
-                previousLonNext = crossroadNode.longitude
-                return nodeIdsToStay.contains(id) // id != startCrossroadId &&
-            })
-            if nextCrossroadId == nil {
-                return [firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!)]//.compactMap { $0 }
-            }
-            return [nextCrossroadId]
+            let partialDistance = inEnd(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId, nextCrossroadId: nextCrossroadId)
+            return [(startCrossroadId, partialDistance.id, partialDistance.distanceToPrevious)]
         default:
             guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }), let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
                 print("Not good")
                 return []
             }
-            var otherWayLength: Double? = nil
-            var nextWayLength: Double? = nil
-            
-            let nodesPrev = way.nodeRefs[0 ..< crossroadIndex].reversed()
-            var previousLatPrev: Double = crossroadNode.latitude
-            var previousLonPrev: Double = crossroadNode.longitude
-            let nodesNext = way.nodeRefs[(crossroadIndex + 1) ... (way.nodeRefs.count - 1)] //MARK: Is (index + 1) ok?
-            var previousLatNext: Double = crossroadNode.latitude
-            var previousLonNext: Double = crossroadNode.longitude
-            
-            otherCrossroadId = nodesPrev.first(where: { id in
-                guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
-                    print("BAD")
-                    return false
-                }
-                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
-                let distance = location.distance(from: CLLocation(latitude: previousLatPrev, longitude: previousLonPrev))
-                if otherWayLength == nil {
-                    otherWayLength = distance
-                } else {
-                    otherWayLength! += distance
-                }
-                previousLatPrev = crossroadNode.latitude
-                previousLonPrev = crossroadNode.longitude
-                return nodeIdsToStay.contains(id)
-                
-            })
-            if otherCrossroadId == nil {
-                otherCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: otherWayLength!) // MARK: Not yet checked out | true false thing should be checked
-            }
-            
-            nextCrossroadId = nodesNext.first(where: { id in
-                guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
-                    print("BAD")
-                    return false
-                }
-                let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
-                let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
-                if nextWayLength == nil {
-                    nextWayLength = distance
-                } else {
-                    nextWayLength! += distance
-                }
-                previousLatNext = crossroadNode.latitude
-                previousLonNext = crossroadNode.longitude
-                return nodeIdsToStay.contains(id)
-            })
-            if nextCrossroadId == nil {
-                nextCrossroadId = firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength!) // MARK: Is the direction (last/first, true/false) correct
-            }
-
-            
-            return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
+            let result = inMiddle(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, crossroadIndex: crossroadIndex, otherCrossroadId: otherCrossroadId, nextCrossroadId: nextCrossroadId)
+            return [(startCrossroadId, result.0.id, result.0.distanceToPrevious), (startCrossroadId, result.1.id, result.1.distanceToPrevious)]//.compactMap { $0 }
         }
-
-        return [otherCrossroadId, nextCrossroadId]//.compactMap { $0 }
+    }
+    
+    private func inBeginning(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int, nextCrossroadId: Int?) -> PartialDistance {
+        var nextWayLength: Double = 0.0
+        var previousLatNext: Double = crossroadNode.latitude
+        var previousLonNext: Double = crossroadNode.longitude
+        var nextCrossroadId = way.nodeRefs.first(where: { id in
+            guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                return false
+            }
+            let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+            let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+            nextWayLength += distance
+            previousLatNext = crossroadNode.latitude
+            previousLonNext = crossroadNode.longitude
+            return nodeIdsToStay.contains(id) // id != startCrossroadId &&
+        })
+        
+        guard let nextCrossroadId = nextCrossroadId else {
+            guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                assert(false)
+                return (0, 0)
+            }
+            return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength)//.compactMap { $0 } // MARK: change last/start , true/false
+        }
+        
+        return (nextCrossroadId, nextWayLength)
+    }
+    
+    private func inEnd(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int, nextCrossroadId: Int?) -> PartialDistance {
+        var nextWayLength: Double = 0.0
+        var previousLatNext: Double = crossroadNode.latitude
+        var previousLonNext: Double = crossroadNode.longitude
+        var nextCrossroadId = way.nodeRefs.last(where: { id in
+            guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                return false
+            }
+            let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+            let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+            nextWayLength += distance
+            previousLatNext = crossroadNode.latitude
+            previousLonNext = crossroadNode.longitude
+            return nodeIdsToStay.contains(id) // id != startCrossroadId &&
+        })
+        guard let nextCrossroadId = nextCrossroadId else {
+            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                assert(false)
+                return (0, 0)
+            }
+            return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: nextWayLength)//.compactMap { $0 }
+        }
+        return (nextCrossroadId, nextWayLength)
+    }
+    
+    private func inMiddle(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], crossroadIndex: Array<Int>.Index, otherCrossroadId: Int?, nextCrossroadId: Int?) -> (PartialDistance, PartialDistance) {
+        var otherWayLength: Double = 0.0
+        var nextWayLength: Double = 0.0
+        
+        let nodesPrev = way.nodeRefs[0 ..< crossroadIndex].reversed()
+        var previousLatPrev: Double = crossroadNode.latitude
+        var previousLonPrev: Double = crossroadNode.longitude
+        let nodesNext = way.nodeRefs[(crossroadIndex + 1) ... (way.nodeRefs.count - 1)] //MARK: Is (index + 1) ok?
+        var previousLatNext: Double = crossroadNode.latitude
+        var previousLonNext: Double = crossroadNode.longitude
+        
+        var otherPartial: PartialDistance
+        if let prevNodeId = nodesPrev.first(where: { id in
+            guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                return false
+            }
+            let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+            let distance = location.distance(from: CLLocation(latitude: previousLatPrev, longitude: previousLonPrev))
+            otherWayLength += distance
+            previousLatPrev = crossroadNode.latitude
+            previousLonPrev = crossroadNode.longitude
+            return nodeIdsToStay.contains(id)
+            
+        }) {
+            otherPartial = (prevNodeId, otherWayLength)
+        } else {
+            guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                assert(false)
+                return ((0, 0.0), (0, 0.0))
+            }
+            otherPartial = firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: true, nodeIdsToStay: nodeIdsToStay, length: nextWayLength)//.compactMap { $0 } // MARK: change last/start , true/false
+        }
+        
+        var nextPartial: PartialDistance
+        if let nextNodeId = nodesNext.first(where: { id in
+            guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                return false
+            }
+            let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+            let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+            nextWayLength += distance
+            previousLatNext = crossroadNode.latitude
+            previousLonNext = crossroadNode.longitude
+            return nodeIdsToStay.contains(id) // id != startCrossroadId &&
+        }) {
+            nextPartial = (nextNodeId, nextWayLength)
+        } else {
+            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                assert(false)
+                return ((0, 0.0), (0, 0.0))
+            }
+            nextPartial = firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: false, nodeIdsToStay: nodeIdsToStay, length: nextWayLength)//.compactMap { $0 }
+        }
+        
+        return ((otherPartial.id, otherPartial.distanceToPrevious), (nextPartial.id, nextPartial.distanceToPrevious))
     }
 
-    private func firstCrossroad(referenceNode: Int, name: String, id: Int, searchFromNodesFirst: Bool, nodeIdsToStay: [Int], length: Double) -> Int {
+    
+    private func firstCrossroad(referenceNode: DenseNodeNew, name: String, id: Int, searchFromNodesFirst: Bool, nodeIdsToStay: [Int], length: Double) -> PartialDistance {
 //        print("firstCrossroad called: \(referenceNode)")
         
         for way in ways {
             guard way.keyVal["name"] == name, way.id != id else { continue }
+            var previousLatNext = referenceNode.latitude
+            var previousLonNext = referenceNode.longitude
+            var nextWayLength = 0.0
             if searchFromNodesFirst {
-                guard way.nodeRefs.first == referenceNode else { continue }
-                guard let crossroadId = way.nodeRefs.first(where: { nodeIdsToStay.contains($0) }) else {
-                    return firstCrossroad(referenceNode: way.nodeRefs.last!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
+                guard way.nodeRefs.first == referenceNode.id else { continue }
+                guard let crossroadId = way.nodeRefs.first(where: { id in
+                    guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                        return false
+                    }
+                    let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                    let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+                    nextWayLength += distance
+                    previousLatNext = crossroadNode.latitude
+                    previousLonNext = crossroadNode.longitude
+                    return nodeIdsToStay.contains(id)
+                }) else {
+                    guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                        continue
+                    }
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
                 }
-                return crossroadId
+                return (crossroadId, length)
             } else {
-                guard way.nodeRefs.last == referenceNode else { continue }
-                guard let crossroadId = way.nodeRefs.last(where: { nodeIdsToStay.contains($0) }) else {
-                    return firstCrossroad(referenceNode: way.nodeRefs.first!, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
+                guard way.nodeRefs.last == referenceNode.id else { continue }
+                guard let crossroadId = way.nodeRefs.last(where: { id in
+                    guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                        return false
+                    }
+                    let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
+                    let distance = location.distance(from: CLLocation(latitude: previousLatNext, longitude: previousLonNext))
+                    nextWayLength += distance
+                    previousLatNext = crossroadNode.latitude
+                    previousLonNext = crossroadNode.longitude
+                    return nodeIdsToStay.contains(id)
+                }) else {
+                    guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                        continue
+                    }
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, id: way.id, searchFromNodesFirst: searchFromNodesFirst, nodeIdsToStay: nodeIdsToStay, length: length)
                 }
-                return crossroadId
+                return (crossroadId, length)
             }
         }
 
         // FIXME if no other crossroad is found - find the very last (or first depending on start direction) node of the road
-        return referenceNode
+        return (referenceNode.id, length)
     }
-
+    
 }
 
 struct DeltaDecoder {
@@ -583,5 +622,16 @@ struct Parser {
     
     mutating func parseLEUInt64() -> UInt64? {
         parseLEUIntX(UInt64.self)
+    }
+}
+
+
+extension RawFile {
+    func launch() {
+        self.readFile()
+        self.handlePrimitiveBlocks()
+        self.parseWaysFromFile()
+        self.parseNodes()
+        self.reduceMap()
     }
 }
