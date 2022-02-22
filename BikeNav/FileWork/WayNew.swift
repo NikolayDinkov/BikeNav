@@ -30,6 +30,7 @@ struct WayNew {
             guard let idx = nodes.firstIndex(where: { nodeId == $0.id }) else {
                 print("No id of node which is bad")
                 assert(false)
+                continue
             }
 
             if previousLat == 0.0 && previousLon == 0.0 {
