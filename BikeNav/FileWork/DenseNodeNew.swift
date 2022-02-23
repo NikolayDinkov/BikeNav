@@ -22,3 +22,4 @@ struct DenseNodeNew {
 
 extension DenseNodeNew: Equatable {}
 extension DenseNodeNew: Hashable {}
+extension DenseNodeNew: Codable {}

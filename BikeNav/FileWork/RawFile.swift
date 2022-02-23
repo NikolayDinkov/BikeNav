@@ -9,7 +9,7 @@ import SwiftProtobuf
 import CoreLocation
 
 typealias PartialDistance = (id: Int, distanceToPrevious: Double)
-typealias PairDistance = (idStart: Int, idEnd: Int, distanceToPrevious: Double)
+typealias PairDistance = (startNode: DenseNodeNew, endNode: DenseNodeNew, distanceToPrevious: Double)
 
 //MARK: We use that there could be only one type in primitivegroups
 class RawFile {
@@ -27,7 +27,7 @@ class RawFile {
     private var ways: [WayNew] = [WayNew]()
     private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
     
-    private var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
+//    private var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
     
     private func readFile() {
         print("Reading the file")
@@ -299,7 +299,7 @@ class RawFile {
         return ArrayDictAppender(ways: handledWays, dict: handledDictionary)
     }
     
-    private func reduceMap() {
+    private func reduceMap() -> Graph {
         print("\nReducing nodes & ways") // FIXME: what if road has turns but its the same way and node represent the turn, or how are we going to navigate if we do not have the distance or way is not finishing in the node
         
         var referencesCount = references.keys.count
@@ -357,19 +357,21 @@ class RawFile {
         print("Looped wanted nodes in \( after3 - before3 )")
         references = referencesNew
         
-//        let idTest = [543380730, 273346029, 1261063975, 277580507, 674039590, 253018846, 1699375901, 1261064074, 543380730, 1699375864, 6597459715]
-//        var newReferences = [Int: [WayNew]]()
-//        for nodeId in idTest {
-//            newReferences[nodeId] = references[nodeId]
-//
-//        }
-//        references = newReferences
+        let idTest = [543380730, 273346029, 1261063975, 277580507, 674039590, 253018846, 1699375901, 1261064074, 543380730, 1699375864, 6597459715]
+        var newReferences = [Int: [WayNew]]()
+        for nodeId in idTest {
+            newReferences[nodeId] = references[nodeId]
+
+        }
+        references = newReferences
 
         print("Finding crossroad relations")
         
         referencesCount = references.keys.count
         entriesPerTask = referencesCount / ProcessInfo.processInfo.processorCount
         tasks = referencesCount / entriesPerTask
+        
+        var allEdges = [Int: [Edge]]()
         
         self.parallelProcessingQueue.sync {
             DispatchQueue.concurrentPerform(iterations: tasks) { offset in
@@ -380,22 +382,31 @@ class RawFile {
                 } else {
                     endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index | It's ok
                 }
+                var edgesToAppend = [Int: [Edge]]()
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
                 for nodeId in nodeIds {
 //                    print("Started at \(nodeId)")
                     let ways = references[nodeId]
                     for way in ways! {
-                        let crossroads = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
-//                      print("From way: \(way.id) found nodes - \(crossroads)")
-                        
+                        let pair = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
+                        let edges = pair.map({ Edge(pair: $0) })
+                        if edgesToAppend[nodeId] != nil {
+                            edgesToAppend[nodeId]!.append(contentsOf: edges)
+                        } else {
+                            edgesToAppend[nodeId] = edges
+                        }
                     }
 //                    print("Found relations for \(nodeId) in \(end - start) seconds")
+                }
+                self.serialSyncQueue.sync {
+                    allEdges.merge(edgesToAppend) { $0 + $1 }
                 }
             }
         }
         
         
         print("Done deleting not needed nodes")
+        return Graph(map: allEdges)
     }
 
     // Either find the next nodeRef that is also a crossroad in references
@@ -403,8 +414,6 @@ class RawFile {
     // If no next crossroad is found in self.ways - the road starts not on a crossroad - the very first/last node must become a crossroad
     private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [PairDistance] { // MARK: Maybe we can manage the no-names with their id's
         let currentNodeIndex = way.nodeRefs.firstIndex(of: startCrossroadId)!
-        var nextCrossroadId: Int? = nil
-        var otherCrossroadId: Int? = nil
 
         switch currentNodeIndex {
         case let x where x == 0:
@@ -412,26 +421,26 @@ class RawFile {
                 print("Not good")
                 return []
             }
-            let partialDistance = inBeginning(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId, nextCrossroadId: nextCrossroadId)
-            return [(startCrossroadId, partialDistance.id, partialDistance.distanceToPrevious)]
+            let partialDistance = inBeginning(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId)
+            return [(crossroadNode, nodes.first(where: {$0.id == partialDistance.id})!, partialDistance.distanceToPrevious)]
         case let x where x == way.nodeRefs.count - 1:
             guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
                 print("Not good")
                 return []
             }
-            let partialDistance = inEnd(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId, nextCrossroadId: nextCrossroadId)
-            return [(startCrossroadId, partialDistance.id, partialDistance.distanceToPrevious)]
+            let partialDistance = inEnd(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId)
+            return [(crossroadNode, nodes.first(where: {$0.id == partialDistance.id})!, partialDistance.distanceToPrevious)]
         default:
             guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }), let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
                 print("Not good")
                 return []
             }
-            let result = inMiddle(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, crossroadIndex: crossroadIndex, otherCrossroadId: otherCrossroadId, nextCrossroadId: nextCrossroadId)
-            return [(startCrossroadId, result.0.id, result.0.distanceToPrevious), (startCrossroadId, result.1.id, result.1.distanceToPrevious)]//.compactMap { $0 }
+            let result = inMiddle(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, crossroadIndex: crossroadIndex)
+            return [(crossroadNode, nodes.first(where: {$0.id == result.0.id})!, result.0.distanceToPrevious), (crossroadNode, nodes.first(where: {$0.id == result.1.id})!, result.1.distanceToPrevious)]//.compactMap { $0 }
         }
     }
     
-    private func inBeginning(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int, nextCrossroadId: Int?) -> PartialDistance {
+    private func inBeginning(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int) -> PartialDistance {
         var nextWayLength: Double = 0.0
         var previousLatNext: Double = crossroadNode.latitude
         var previousLonNext: Double = crossroadNode.longitude
@@ -458,7 +467,7 @@ class RawFile {
         return (nextCrossroadId, nextWayLength)
     }
     
-    private func inEnd(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int, nextCrossroadId: Int?) -> PartialDistance {
+    private func inEnd(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], startCrossroadId: Int) -> PartialDistance {
         var nextWayLength: Double = 0.0
         var previousLatNext: Double = crossroadNode.latitude
         var previousLonNext: Double = crossroadNode.longitude
@@ -483,7 +492,7 @@ class RawFile {
         return (nextCrossroadId, nextWayLength)
     }
     
-    private func inMiddle(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], crossroadIndex: Array<Int>.Index, otherCrossroadId: Int?, nextCrossroadId: Int?) -> (PartialDistance, PartialDistance) {
+    private func inMiddle(way: WayNew, crossroadNode: DenseNodeNew, nodeIdsToStay: [Int], crossroadIndex: Array<Int>.Index) -> (PartialDistance, PartialDistance) {
         var otherWayLength: Double = 0.0
         var nextWayLength: Double = 0.0
         
@@ -567,7 +576,6 @@ class RawFile {
                     guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
                         continue
                     }
-                    print("Inner recursion")
                     return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: length, visitedWayIds: visitedWayIds)
                 }
                 return (crossroadId, length)
@@ -586,10 +594,8 @@ class RawFile {
                     guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
                         continue
                     }
-                    print("Inner recursion")
                     return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: length, visitedWayIds: visitedWayIds)
                 }
-                print("Exit recursion")
                 return (crossroadId, length)
             }
         }
@@ -651,10 +657,23 @@ struct Parser {
 
 extension RawFile {
     func launch() {
-        self.readFile()
-        self.handlePrimitiveBlocks()
-        self.parseWaysFromFile()
-        self.parseNodes()
-        self.reduceMap()
+        let filePath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("graph.short")
+        if fileManager.fileExists(atPath: filePath.absoluteString) {
+            
+        } else {
+            
+            self.readFile()
+            self.handlePrimitiveBlocks()
+            self.parseWaysFromFile()
+            self.parseNodes()
+            do {
+                let graph = self.reduceMap()
+                let jsonResultData = try JSONEncoder().encode(graph)
+                try jsonResultData.write(to: filePath)
+            } catch {
+                return
+            }
+            
+        }
     }
 }
