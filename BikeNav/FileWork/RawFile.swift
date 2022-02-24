@@ -41,15 +41,15 @@ class RawFile {
         do {
             fileData = try Data(contentsOf: fileURL)
             var parser = Parser(data: fileData)
-            let offset = 0
-            while parser.data.count > 0 { // MARK: Cannot use threads for the reading, but can for handling
+            while parser.data.count > parser.offset { // MARK: Cannot use threads for the reading, but can for handling
                 let headerLength = Int(parser.parseLEUInt32()!)
-                let headerRange = offset ..< (headerLength + offset)
+                let headerRange = parser.offset ..< (headerLength + parser.offset)
                 let blobHeader = try OSMPBF_BlobHeader(serializedData: parser.data.subdata(in: headerRange))
-                let blobRange = (headerLength + offset) ..< (Int(blobHeader.datasize) + headerLength + offset)
-                let blob = try OSMPBF_Blob(serializedData: parser.data.subdata(in: blobRange))
-                let compressedData = blob.zlibData.dropFirst(2) // blob.zlibData.subdata(in: 2..<blob.zlibData.count)
-                let decompressedData = try (compressedData as NSData).decompressed(using: .zlib)
+                parser.offset += headerLength
+                let blobRange = (parser.offset) ..< parser.offset + Int(blobHeader.datasize)
+                let blobData = parser.data.subdata(in: blobRange)
+                parser.offset += blobRange.count
+
                 switch blobHeader.type {
                 case "OSMHeader":
 //                    let headerBlock = try OSMPBF_HeaderBlock(serializedData: decompressedData as Data)
@@ -58,8 +58,11 @@ class RawFile {
                     readingGroup.enter() // Start a task
                     parallelProcessingQueue.async {
                         do {
+                            let blob = try OSMPBF_Blob(serializedData: blobData)
+                            let compressedData = blob.zlibData.dropFirst(2) // blob.zlibData.subdata(in: 2..<blob.zlibData.count)
+                            let decompressedData = try (compressedData as NSData).decompressed(using: .zlib)
                             let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
-                            self.serialSyncQueue.async {
+                            self.serialSyncQueue.sync {
                                 self.primitiveBLocks.append(primitiveBlock)
                                 readingGroup.leave() // Finish the task
                             }
@@ -72,10 +75,8 @@ class RawFile {
                 default:
                     print("Bad")
                 }
-                parser.data = parser.data.dropFirst(headerLength + Int(blobHeader.datasize))
             }
             print("File opened")
-            
         } catch {
             print(error.localizedDescription)
             assert(false)
@@ -390,6 +391,11 @@ class RawFile {
                         guard pair.isEmpty == false else {
                             continue
                         }
+//                        for pair in pair {
+//                            if pair.startNode.id != nodeId {
+//                                print("1")
+//                            }
+//                        }
                         let edges = pair.map({ Edge(pair: $0) })
                         if edgesToAppend[pair.first!.startNode] != nil {
                             edgesToAppend[pair.first!.startNode]!.append(contentsOf: edges)
@@ -619,6 +625,9 @@ struct DeltaDecoder {
 
 struct Parser {
     var data: Data
+
+    var offset = 0
+
     init(data: Data) {
         self.data = data
     }
@@ -627,16 +636,13 @@ struct Parser {
     where Result: UnsignedInteger // May be Signed or UnSigned Integer if needed
     {
         let expected = MemoryLayout<Result>.size
-        guard data.count >= expected else { return nil }
-        defer { self.data = Data(self.data.dropFirst(expected)) }
+        guard data.count >= offset + expected else { return nil }
+        defer { offset += expected }
         
         
-        return data
-            .prefix(expected)
-            .reduce(0, { soFar, new in
-                (soFar << 8) | Result(new)
-            })
+        return data[offset..<offset+expected].reduce(0, { soFar, new in (soFar << 8) | Result(new) })
     }
+    
     mutating func parseLEUInt8() -> UInt8? {
         parseLEUIntX(UInt8.self)
     }
