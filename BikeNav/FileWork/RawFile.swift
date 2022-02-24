@@ -26,9 +26,7 @@ class RawFile {
     private var nodes: [DenseNodeNew] = [DenseNodeNew]()
     private var ways: [WayNew] = [WayNew]()
     private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
-    
-//    private var realMap: [DenseNodeNew: [WaySmaller]] = [DenseNodeNew: [WaySmaller]]()
-    
+        
     private func readFile() {
         print("Reading the file")
         guard let fileURL = Bundle.main.url(forResource: "bulgaria-220213.osm", withExtension: ".pbf") else {
@@ -371,7 +369,7 @@ class RawFile {
         entriesPerTask = referencesCount / ProcessInfo.processInfo.processorCount
         tasks = referencesCount / entriesPerTask
         
-        var allEdges = [Int: [Edge]]()
+        var allEdges = [DenseNodeNew: [Edge]]()
         
         self.parallelProcessingQueue.sync {
             DispatchQueue.concurrentPerform(iterations: tasks) { offset in
@@ -382,18 +380,21 @@ class RawFile {
                 } else {
                     endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index | It's ok
                 }
-                var edgesToAppend = [Int: [Edge]]()
+                var edgesToAppend = [DenseNodeNew: [Edge]]()
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
                 for nodeId in nodeIds {
 //                    print("Started at \(nodeId)")
                     let ways = references[nodeId]
                     for way in ways! {
                         let pair = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
+                        guard pair.isEmpty == false else {
+                            continue
+                        }
                         let edges = pair.map({ Edge(pair: $0) })
-                        if edgesToAppend[nodeId] != nil {
-                            edgesToAppend[nodeId]!.append(contentsOf: edges)
+                        if edgesToAppend[pair.first!.startNode] != nil {
+                            edgesToAppend[pair.first!.startNode]!.append(contentsOf: edges)
                         } else {
-                            edgesToAppend[nodeId] = edges
+                            edgesToAppend[pair.first!.startNode] = edges
                         }
                     }
 //                    print("Found relations for \(nodeId) in \(end - start) seconds")
@@ -549,7 +550,6 @@ class RawFile {
         return ((otherPartial.id, otherPartial.distanceToPrevious), (nextPartial.id, nextPartial.distanceToPrevious))
     }
 
-    
     private func firstCrossroad(referenceNode: DenseNodeNew, name: String, referenceWayId: Int, nodeIdsToStay: [Int], length: Double, visitedWayIds: [Int]) -> PartialDistance {
         for way in ways {
             guard way.keyVal["name"] == name, way.id != referenceWayId, !visitedWayIds.contains(way.id) else {
@@ -658,8 +658,16 @@ struct Parser {
 extension RawFile {
     func launch() {
         let filePath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("graph.short")
-        if fileManager.fileExists(atPath: filePath.absoluteString) {
-            
+        print(filePath)
+        if fileManager.fileExists(atPath: filePath.path) {
+            do {
+                let jsonData = try Data(contentsOf: filePath)
+                let jsonDecoder = JSONDecoder()
+                let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
+            } catch {
+                print("Error opening the smaller file with the graph")
+                return
+            }
         } else {
             
             self.readFile()
@@ -671,6 +679,7 @@ extension RawFile {
                 let jsonResultData = try JSONEncoder().encode(graph)
                 try jsonResultData.write(to: filePath)
             } catch {
+                print("Error making smaller and faster for loading file")
                 return
             }
             

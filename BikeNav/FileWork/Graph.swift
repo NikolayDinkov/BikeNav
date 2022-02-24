@@ -8,22 +8,19 @@
 import Foundation
 
 struct Edge {
-    let nodeStart: DenseNodeNew
     let nodeEnd: DenseNodeNew
     let weight: Double
     
     init(pair: PairDistance) {
-        self.nodeStart = pair.startNode
         self.nodeEnd = pair.endNode
         self.weight = pair.distanceToPrevious
     }
 }
 
 struct Graph {
-    let map: [Int: [Edge]]
+    let map: [DenseNodeNew: [Edge]]
     
-    
-    func findRoad(to nodeId: Int) {
+    func findRoad(from nodeIdStart: Int, to nodeIdEnd: Int) {
         
     }
 }
