@@ -670,6 +670,7 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
+                print(graph.findRoad(from: 250056671, to: 186119554))
             } catch {
                 print("Error opening the smaller file with the graph")
                 return
@@ -680,15 +681,14 @@ extension RawFile {
             self.handlePrimitiveBlocks()
             self.parseWaysFromFile()
             self.parseNodes()
+            let graph = self.reduceMap()
             do {
-                let graph = self.reduceMap()
                 let jsonResultData = try JSONEncoder().encode(graph)
                 try jsonResultData.write(to: filePath)
             } catch {
                 print("Error making smaller and faster for loading file")
                 return
             }
-            
         }
     }
 }
