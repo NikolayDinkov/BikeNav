@@ -25,6 +25,7 @@ class RawFile {
     
     private var nodes: [DenseNodeNew] = [DenseNodeNew]()
     private var ways: [WayNew] = [WayNew]()
+    private var sortedWays: [WaySmaller] = [WaySmaller]()
     private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
         
     private func readFile() {
@@ -356,13 +357,13 @@ class RawFile {
         print("Looped wanted nodes in \( after3 - before3 )")
         references = referencesNew
         
-        let idTest = [543380730, 273346029, 1261063975, 277580507, 674039590, 253018846, 1699375901, 1261064074, 543380730, 1699375864, 6597459715]
-        var newReferences = [Int: [WayNew]]()
-        for nodeId in idTest {
-            newReferences[nodeId] = references[nodeId]
-
-        }
-        references = newReferences
+//        let idTest = [1699375901] // 4519762598, 3189953569, 543380730, 273346029, 1261063975, 277580507, 674039590, 253018846, 1699375901, 1261064074, 543380730, 1699375864, 6597459715, 728623370, 3189953570, 3189953570, 1699497995, 1699497961, 728623370
+//        var newReferences = [Int: [WayNew]]()
+//        for nodeId in idTest {
+//            newReferences[nodeId] = references[nodeId]
+//
+//        }
+//        references = newReferences
 
         print("Finding crossroad relations")
         
@@ -410,9 +411,14 @@ class RawFile {
                 }
             }
         }
-        
-        
-        print("Done deleting not needed nodes")
+//        for (node, edges) in allEdges {
+//            print("Node ID - \(node.id) with ")
+//            for edge in edges {
+//                print(edge.nodeEnd.id, edge.weight)
+//            }
+//            print()
+//        }
+//        print("Done deleting not needed nodes")
         return Graph(map: allEdges)
     }
 
@@ -424,26 +430,54 @@ class RawFile {
 
         switch currentNodeIndex {
         case let x where x == 0:
-            guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
+            guard let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < startCrossroadId { return .smaller }
+                else if $0.id > startCrossroadId { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 print("Not good")
                 return []
             }
             let partialDistance = inBeginning(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId)
-            return [(crossroadNode, nodes.first(where: {$0.id == partialDistance.id})!, partialDistance.distanceToPrevious)]
+            return [(crossroadNode, nodes.binarySearch(closure: {
+                if $0.id < partialDistance.id { return .smaller }
+                else if $0.id > partialDistance.id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count)!, partialDistance.distanceToPrevious)]
         case let x where x == way.nodeRefs.count - 1:
-            guard let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
+            guard let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < startCrossroadId { return .smaller }
+                else if $0.id > startCrossroadId { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 print("Not good")
                 return []
             }
             let partialDistance = inEnd(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, startCrossroadId: startCrossroadId)
-            return [(crossroadNode, nodes.first(where: {$0.id == partialDistance.id})!, partialDistance.distanceToPrevious)]
+            return [(crossroadNode, nodes.binarySearch(closure: {
+                if $0.id < partialDistance.id { return .smaller }
+                else if $0.id > partialDistance.id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count)!, partialDistance.distanceToPrevious)]
         default:
-            guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }), let crossroadNode = nodes.first(where: { $0.id == startCrossroadId }) else {
+            guard let crossroadIndex = way.nodeRefs.firstIndex(where: { $0 == startCrossroadId }), let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < startCrossroadId { return .smaller }
+                else if $0.id > startCrossroadId { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 print("Not good")
                 return []
             }
             let result = inMiddle(way: way, crossroadNode: crossroadNode, nodeIdsToStay: nodeIdsToStay, crossroadIndex: crossroadIndex)
-            return [(crossroadNode, nodes.first(where: {$0.id == result.0.id})!, result.0.distanceToPrevious), (crossroadNode, nodes.first(where: {$0.id == result.1.id})!, result.1.distanceToPrevious)]//.compactMap { $0 }
+            return [(crossroadNode, nodes.binarySearch(closure: {
+                if $0.id < result.0.id { return .smaller }
+                else if $0.id > result.0.id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count)!, result.0.distanceToPrevious), (crossroadNode, nodes.binarySearch(closure: {
+                if $0.id < result.1.id { return .smaller }
+                else if $0.id > result.1.id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count)!, result.1.distanceToPrevious)]//.compactMap { $0 }
         }
     }
     
@@ -452,7 +486,11 @@ class RawFile {
         var previousLatNext: Double = crossroadNode.latitude
         var previousLonNext: Double = crossroadNode.longitude
         var nextCrossroadId = way.nodeRefs.first(where: { id in
-            guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+            guard id != startCrossroadId, let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < id { return .smaller }
+                else if $0.id > id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 return false
             }
             let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -464,7 +502,11 @@ class RawFile {
         })
         
         guard let nextCrossroadId = nextCrossroadId else {
-            guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+            guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.binarySearch(closure: {
+                if $0.id < nodeRef { return .smaller }
+                else if $0.id > nodeRef { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 assert(false)
                 return (0, 0)
             }
@@ -479,7 +521,11 @@ class RawFile {
         var previousLatNext: Double = crossroadNode.latitude
         var previousLonNext: Double = crossroadNode.longitude
         var nextCrossroadId = way.nodeRefs.last(where: { id in
-            guard id != startCrossroadId, let crossroadNode = nodes.first(where: { $0.id == id }) else {
+            guard id != startCrossroadId, let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < id { return .smaller }
+                else if $0.id > id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 return false
             }
             let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -490,7 +536,11 @@ class RawFile {
             return nodeIdsToStay.contains(id) // id != startCrossroadId &&
         })
         guard let nextCrossroadId = nextCrossroadId else {
-            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.binarySearch(closure: {
+                if $0.id < nodeRef { return .smaller }
+                else if $0.id > nodeRef { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 assert(false)
                 return (0, 0)
             }
@@ -512,7 +562,11 @@ class RawFile {
         
         var otherPartial: PartialDistance
         if let prevNodeId = nodesPrev.first(where: { id in
-            guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+            guard let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < id { return .smaller }
+                else if $0.id > id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 return false
             }
             let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -525,7 +579,11 @@ class RawFile {
         }) {
             otherPartial = (prevNodeId, otherWayLength)
         } else {
-            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.binarySearch(closure: {
+                if $0.id < nodeRef { return .smaller }
+                else if $0.id > nodeRef { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 assert(false)
                 return ((0, 0.0), (0, 0.0))
             }
@@ -534,7 +592,11 @@ class RawFile {
         
         var nextPartial: PartialDistance
         if let nextNodeId = nodesNext.first(where: { id in
-            guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+            guard let crossroadNode = nodes.binarySearch(closure: {
+                if $0.id < id { return .smaller }
+                else if $0.id > id { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 return false
             }
             let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -546,7 +608,11 @@ class RawFile {
         }) {
             nextPartial = (nextNodeId, nextWayLength)
         } else {
-            guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+            guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.binarySearch(closure: {
+                if $0.id < nodeRef { return .smaller }
+                else if $0.id > nodeRef { return .bigger }
+                else { return .even }
+            }, range: 0..<nodes.count) else {
                 assert(false)
                 return ((0, 0.0), (0, 0.0))
             }
@@ -565,11 +631,15 @@ class RawFile {
             visitedWayIds.append(referenceWayId)
             var previousLatNext = referenceNode.latitude
             var previousLonNext = referenceNode.longitude
-            var nextWayLength = 0.0
+            var nextWayLength = length
             
             if way.nodeRefs.first == referenceNode.id {
                 guard let crossroadId = way.nodeRefs.first(where: { id in
-                    guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    guard let crossroadNode = nodes.binarySearch(closure: {
+                        if $0.id < id { return .smaller }
+                        else if $0.id > id { return .bigger }
+                        else { return .even }
+                    }, range: 0..<nodes.count) else {
                         return false
                     }
                     let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -579,15 +649,23 @@ class RawFile {
                     previousLonNext = crossroadNode.longitude
                     return nodeIdsToStay.contains(id)
                 }) else {
-                    guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                    guard let nodeRef = way.nodeRefs.last, let referenceNodeNew = nodes.binarySearch(closure: {
+                        if $0.id < nodeRef { return .smaller }
+                        else if $0.id > nodeRef { return .bigger }
+                        else { return .even }
+                    }, range: 0..<nodes.count) else {
                         continue
                     }
-                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: length, visitedWayIds: visitedWayIds)
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
                 }
-                return (crossroadId, length)
+                return (crossroadId, nextWayLength)
             } else if way.nodeRefs.last == referenceNode.id {
                 guard let crossroadId = way.nodeRefs.last(where: { id in
-                    guard let crossroadNode = nodes.first(where: { $0.id == id }) else {
+                    guard let crossroadNode = nodes.binarySearch(closure: {
+                        if $0.id < id { return .smaller }
+                        else if $0.id > id { return .bigger }
+                        else { return .even }
+                    }, range: 0..<nodes.count) else {
                         return false
                     }
                     let location = CLLocation(latitude: crossroadNode.latitude, longitude: crossroadNode.longitude)
@@ -597,17 +675,26 @@ class RawFile {
                     previousLonNext = crossroadNode.longitude
                     return nodeIdsToStay.contains(id)
                 }) else {
-                    guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.first(where: { $0.id == nodeRef}) else {
+                    guard let nodeRef = way.nodeRefs.first, let referenceNodeNew = nodes.binarySearch(closure: {
+                        if $0.id < nodeRef { return .smaller }
+                        else if $0.id > nodeRef { return .bigger }
+                        else { return .even }
+                    }, range: 0..<nodes.count) else {
                         continue
                     }
-                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: length, visitedWayIds: visitedWayIds)
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
                 }
-                return (crossroadId, length)
+                return (crossroadId, nextWayLength)
             }
         }
 
         // FIXME if no other crossroad is found - find the very last (or first depending on start direction) node of the road
         return (referenceNode.id, length)
+    }
+    
+    private func sortNodesAndWays() {
+        nodes.sort { $0.id < $1.id }
+        ways.sort { $0.id < $1.id }
     }
 }
 
@@ -639,7 +726,6 @@ struct Parser {
         guard data.count >= offset + expected else { return nil }
         defer { offset += expected }
         
-        
         return data[offset..<offset+expected].reduce(0, { soFar, new in (soFar << 8) | Result(new) })
     }
     
@@ -660,9 +746,33 @@ struct Parser {
     }
 }
 
+enum Comparison {
+    case bigger
+    case smaller
+    case even
+}
+
+extension Collection where Iterator.Element: Comparable, Self.Index == Int {
+    func binarySearch(closure: (Iterator.Element) -> Comparison, range: Range<Int>) -> Iterator.Element? {
+        guard range.lowerBound < range.upperBound else {
+            return nil
+        }
+        let index = range.lowerBound + (range.upperBound - range.lowerBound) / 2
+
+        switch closure(self[index]) {
+        case .even:
+            return self[index]
+        case .smaller:
+            return binarySearch(closure: closure, range: (index + 1)..<range.upperBound)
+        case .bigger:
+            return binarySearch(closure: closure, range: range.lowerBound..<index)
+        }
+    }
+    
+}
 
 extension RawFile {
-    func launch() {
+    func launch() -> Graph {
         let filePath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("graph.short")
         print(filePath)
         if fileManager.fileExists(atPath: filePath.path) {
@@ -670,10 +780,11 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
-                print(graph.findRoad(from: 250056671, to: 186119554))
+//                print(graph.findRoad(from: 458757855, to: 250063711)) // 250061352, 458757855, 250061353
+                return graph
             } catch {
                 print("Error opening the smaller file with the graph")
-                return
+                return Graph(map: [:])
             }
         } else {
             
@@ -681,14 +792,16 @@ extension RawFile {
             self.handlePrimitiveBlocks()
             self.parseWaysFromFile()
             self.parseNodes()
+            self.sortNodesAndWays()
             let graph = self.reduceMap()
             do {
                 let jsonResultData = try JSONEncoder().encode(graph)
                 try jsonResultData.write(to: filePath)
             } catch {
                 print("Error making smaller and faster for loading file")
-                return
+                return Graph(map: [:])
             }
+            return graph
         }
     }
 }

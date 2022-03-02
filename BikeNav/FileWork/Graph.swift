@@ -40,6 +40,10 @@ struct Graph {
         guard let nodeStart = map.keys.first(where: { $0.id == nodeIdStart }) else {
             return PathSegment(node: DenseNodeNew(id: 0, latCalculated: 0.0, lonCalculated: 0.0), distance: 0.0, segmentPrev: nil)
         }
+        for edge in map[nodeStart]! {
+            print(edge)
+        }
+        
         guard let nodeEnd = map.keys.first(where: { $0.id == nodeIdEnd }) else {
             return PathSegment(node: DenseNodeNew(id: 0, latCalculated: 0.0, lonCalculated: 0.0), distance: 0.0, segmentPrev: nil)
         }
@@ -57,6 +61,7 @@ struct Graph {
                 return pathCurrent
             }
             print("\(pathCurrent.node) with distance: \(pathCurrent.distance) and nodes: ")
+            
             for edge in map[pathCurrent.node]! {
                 prioQueue.append(PathSegment(node: edge.nodeEnd, distance: pathCurrent.distance + edge.weight, segmentPrev: pathCurrent.segmentPrev))
             }

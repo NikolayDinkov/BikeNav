@@ -23,3 +23,8 @@ struct DenseNodeNew {
 extension DenseNodeNew: Equatable {}
 extension DenseNodeNew: Hashable {}
 extension DenseNodeNew: Codable {}
+extension DenseNodeNew: Comparable {
+    static func <(lhs: DenseNodeNew, rhs: DenseNodeNew) -> Bool {
+        return lhs.id < rhs.id
+    }
+}

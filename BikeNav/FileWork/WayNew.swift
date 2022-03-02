@@ -23,8 +23,11 @@ struct WayNew {
     }
 }
 
-extension WayNew: Hashable {
-    
+extension WayNew: Hashable {}
+extension WayNew: Comparable {
+    static func <(lhs: WayNew, rhs: WayNew) -> Bool {
+        return lhs.id < rhs.id
+    }
 }
 
 struct WaySmaller {
@@ -34,10 +37,15 @@ struct WaySmaller {
     
     let nodeRefs: [Int]
     
+//    let centerLat: Double
+//    let centerLon: Double
+    
     init(id: Int, name: String, length: Double, nodeRefs: [Int]) {
         self.id = id
         self.name = name
         self.length = length
         self.nodeRefs = nodeRefs
+        
     }
+    
 }
