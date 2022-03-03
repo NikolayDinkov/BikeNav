@@ -773,6 +773,7 @@ extension Collection where Iterator.Element: Comparable, Self.Index == Int {
 
 extension RawFile {
     func launch() -> Graph {
+        let before = Date().timeIntervalSince1970
         let filePath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("graph.short")
         print(filePath)
         if fileManager.fileExists(atPath: filePath.path) {
@@ -780,7 +781,14 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
-//                print(graph.findRoad(from: 458757855, to: 250063711)) // 250061352, 458757855, 250061353
+                var path = graph.findRoad(from: 458757855, to: 250063711)
+                // 250061352, 458757855, 250061353
+                while path.segmentPrev != nil {
+                    print("\(path.node) - distance: \(path.distance)")
+                    path = path.segmentPrev!
+                }
+//                path.printIt()
+//                print(path.segmentPrev?.node)
                 return graph
             } catch {
                 print("Error opening the smaller file with the graph")
@@ -801,6 +809,8 @@ extension RawFile {
                 print("Error making smaller and faster for loading file")
                 return Graph(map: [:])
             }
+            let after = Date().timeIntervalSince1970
+            print("Took \(after - before) seconds")
             return graph
         }
     }
