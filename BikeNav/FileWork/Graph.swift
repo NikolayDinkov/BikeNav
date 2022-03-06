@@ -57,7 +57,7 @@ struct Graph {
             }
         }
         prioQueue.append(PathSegment(node: nodeStart, distance: 0.0, segmentPrev: nil))
-        print(prioQueue[0].node)
+//        print(prioQueue[0].node)
         while prioQueue.isEmpty == false {
             let pathCurrent = prioQueue.removeFirst()
             guard nodesCrossedId.contains(pathCurrent.node.id) == false else { // not going on already passed node

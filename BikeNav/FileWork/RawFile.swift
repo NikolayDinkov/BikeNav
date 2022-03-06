@@ -183,13 +183,13 @@ class RawFile {
                 
                 var nodesToAdd = [DenseNodeNew]()
                 
-                for primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
-                    for primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
+                for primitiveBlock in primitiveBlocksForIteration {
+                    for primitiveGroup in primitiveBlock.primitivegroup {
                         let nodesReturned = handleNodes(primitiveGroup: primitiveGroup, latOffset: primitiveBlock.latOffset, lonOffset: primitiveBlock.lonOffset, granularity: primitiveBlock.granularity, stringTable: primitiveBlock.stringtable)
                             nodesToAdd.append(contentsOf: nodesReturned)
                     }
                 }
-                self.serialSyncQueue.sync { // MARK: Can we use here DispatchGroup, because it takes some time
+                self.serialSyncQueue.sync {
                     self.nodes.append(contentsOf: nodesToAdd)
                 }
             }
@@ -203,7 +203,7 @@ class RawFile {
         
     }
     
-    private func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] { // TODO: See if I need key and values of Nodes
+    private func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] {
         var handledNodes = [DenseNodeNew]()
 //        let keyValArray = primitiveGroup.dense.keysVals.reduce([[Int32]]()) { partialResult, current in
 //            if current != 0 {
@@ -270,7 +270,7 @@ class RawFile {
                 let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
                 if keyString == "highway" {
                     shouldAppend = true
-                } else if keyString == "name" {
+                } else if keyString == "name" || keyString == "ref" { // MARK: Here maybe we need to add somoething about "red"
                     hasName = true
                 }
                 let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
@@ -300,7 +300,7 @@ class RawFile {
     }
     
     private func reduceMap() -> Graph {
-        print("\nReducing nodes & ways") // FIXME: what if road has turns but its the same way and node represent the turn, or how are we going to navigate if we do not have the distance or way is not finishing in the node
+        print("\nReducing nodes & ways")
         
         var referencesCount = references.keys.count
         var entriesPerTask = referencesCount / ProcessInfo.processInfo.processorCount
@@ -318,7 +318,7 @@ class RawFile {
                 if offset == tasks - 1 {
                     endIndex = startIndex + (referencesCount - (entriesPerTask * tasks) + entriesPerTask)
                 } else {
-                    endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index | It's ok
+                    endIndex = startIndex + entriesPerTask
                 }
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
                 
@@ -330,21 +330,22 @@ class RawFile {
                         continue
                     }
                     
-                    let namedWays = ways.filter { $0.keyVal["name"] != nil }
-                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] })
-                    if namedWays.count >= 3 || uniqueNames.count >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | threads not ok
+                    let namedWays = ways.filter { $0.keyVal["name"] != nil || $0.keyVal["ref"] != nil } // || $0.keyVal["ref"] != nil
+                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] }) // MARK: !!! if we are using refs we should do smtg about it alse here
+                    let uniqueRefs = Set(ways.compactMap { $0.keyVal["ref"] })
+                    let combinedSets = uniqueRefs.union(uniqueNames)
+                    if namedWays.count >= 3 || (uniqueNames.count) >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
                         currentIterrationToStay.append(id)
                     }
                 }
                 
-                self.serialSyncQueue.sync { // MARK: Is that correct, .sync? | DispatchGroup | We need for sure to be .sync or maybe we could use DispatchGroup
+                self.serialSyncQueue.sync {
                     nodeIdsToStay.append(contentsOf: currentIterrationToStay)
                 }
             }
         }
         let after = Date().timeIntervalSince1970
         print("Reduced in \((after - before)) seconds")
-        // TODO: remove nodes from nodeIdsToRemove | Maybe use threads | Can we run this in the background | I don't think we can use threads here
         print("Nodes which we want: \(nodeIdsToStay.count)")
         
         
@@ -380,7 +381,7 @@ class RawFile {
                 if offset == tasks - 1 {
                     endIndex = startIndex + (referencesCount - (entriesPerTask * tasks) + entriesPerTask)
                 } else {
-                    endIndex = startIndex + entriesPerTask // FIXME: Calculate the max final index | It's ok
+                    endIndex = startIndex + entriesPerTask
                 }
                 var edgesToAppend = [DenseNodeNew: [Edge]]()
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
@@ -510,7 +511,7 @@ class RawFile {
                 assert(false)
                 return (0, 0)
             }
-            return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 } // MARK: change last/start , true/false
+            return firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 } // MARK: change last/start , true/false
         }
         
         return (nextCrossroadId, nextWayLength)
@@ -544,7 +545,7 @@ class RawFile {
                 assert(false)
                 return (0, 0)
             }
-            return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 }
+            return firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 }
         }
         return (nextCrossroadId, nextWayLength)
     }
@@ -587,7 +588,7 @@ class RawFile {
                 assert(false)
                 return ((0, 0.0), (0, 0.0))
             }
-            otherPartial = firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: otherWayLength, visitedWayIds: [way.id])//.compactMap { $0 } // MARK: change last/start , true/false
+            otherPartial = firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: otherWayLength, visitedWayIds: [way.id])//.compactMap { $0 } // MARK: change last/start , true/false
         }
         
         var nextPartial: PartialDistance
@@ -616,7 +617,7 @@ class RawFile {
                 assert(false)
                 return ((0, 0.0), (0, 0.0))
             }
-            nextPartial = firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 }
+            nextPartial = firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: [way.id])//.compactMap { $0 }
         }
         
         return ((otherPartial.id, otherPartial.distanceToPrevious), (nextPartial.id, nextPartial.distanceToPrevious))
@@ -624,7 +625,10 @@ class RawFile {
 
     private func firstCrossroad(referenceNode: DenseNodeNew, name: String, referenceWayId: Int, nodeIdsToStay: [Int], length: Double, visitedWayIds: [Int]) -> PartialDistance {
         for way in ways {
-            guard way.keyVal["name"] == name, way.id != referenceWayId, !visitedWayIds.contains(way.id) else {
+            guard way.keyVal["name"] == name || way.keyVal["ref"] == name else {
+                continue
+            }
+            guard way.id != referenceWayId, !visitedWayIds.contains(way.id) else {
                 continue
             }
             var visitedWayIds = visitedWayIds
@@ -656,7 +660,7 @@ class RawFile {
                     }, range: 0..<nodes.count) else {
                         continue
                     }
-                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
                 }
                 return (crossroadId, nextWayLength)
             } else if way.nodeRefs.last == referenceNode.id {
@@ -682,7 +686,7 @@ class RawFile {
                     }, range: 0..<nodes.count) else {
                         continue
                     }
-                    return firstCrossroad(referenceNode: referenceNodeNew, name: way.keyVal["name"]!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
+                    return firstCrossroad(referenceNode: referenceNodeNew, name: (way.keyVal["name"] ?? way.keyVal["ref"])!, referenceWayId: way.id, nodeIdsToStay: nodeIdsToStay, length: nextWayLength, visitedWayIds: visitedWayIds)
                 }
                 return (crossroadId, nextWayLength)
             }
@@ -781,10 +785,10 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
-                var path = graph.findRoad(from: 458757855, to: 250063711)
+                var path = graph.findRoad(from: 250056671, to: 186119554)
                 // 250061352, 458757855, 250061353
                 while path.segmentPrev != nil {
-                    print("\(path.node) - distance: \(path.distance)")
+                    print("\(path.node) 21")
                     path = path.segmentPrev!
                 }
 //                path.printIt()
