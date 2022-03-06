@@ -333,8 +333,7 @@ class RawFile {
                     let namedWays = ways.filter { $0.keyVal["name"] != nil || $0.keyVal["ref"] != nil } // || $0.keyVal["ref"] != nil
                     let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] }) // MARK: !!! if we are using refs we should do smtg about it alse here
                     let uniqueRefs = Set(ways.compactMap { $0.keyVal["ref"] })
-                    let combinedSets = uniqueRefs.union(uniqueNames)
-                    if namedWays.count >= 3 || (uniqueNames.count) >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
+                    if namedWays.count >= 3 || (uniqueNames.count) >= 2 || uniqueRefs.count >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
                         currentIterrationToStay.append(id)
                     }
                 }
