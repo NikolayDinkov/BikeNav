@@ -67,9 +67,9 @@ struct Graph {
             if pathCurrent.node == nodeEnd {
                 return pathCurrent
             }
-            guard map[pathCurrent.node] != nil else {
-                continue
-            }
+//            guard map[pathCurrent.node] != nil else {
+//                continue
+//            }
             for edge in map[pathCurrent.node]! {
                 prioQueue.append(PathSegment(node: edge.nodeEnd, distance: pathCurrent.distance + edge.weight, segmentPrev: pathCurrent))
             }

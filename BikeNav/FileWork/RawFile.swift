@@ -270,7 +270,7 @@ class RawFile {
                 let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
                 if keyString == "highway" {
                     shouldAppend = true
-                } else if keyString == "name" || keyString == "ref" { // MARK: Here maybe we need to add somoething about "red"
+                } else if keyString == "name" || keyString == "ref" { // MARK: Here maybe we need to add somoething about "ref"
                     hasName = true
                 }
                 let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
@@ -389,8 +389,8 @@ class RawFile {
 //                    print("Started at \(nodeId)")
                     let ways = references[nodeId]
                     for way in ways! {
-                        let pair = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
-                        guard pair.isEmpty == false else {
+                        let pairs = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
+                        guard pairs.isEmpty == false else {
                             continue
                         }
 //                        for pair in pair {
@@ -398,14 +398,29 @@ class RawFile {
 //                                print("1")
 //                            }
 //                        }
-                        let edges = pair.map({ Edge(pair: $0) })
-                        if edgesToAppend[pair.first!.startNode] != nil {
-                            edgesToAppend[pair.first!.startNode]!.append(contentsOf: edges)
-                        } else {
-                            edgesToAppend[pair.first!.startNode] = edges
+//                        let edges = pair.map({ Edge(pair: $0) })
+//                        if edgesToAppend[pair.first!.startNode] != nil {
+//                            edgesToAppend[pair.first!.startNode]!.append(contentsOf: edges)
+//                        } else {
+//                            edgesToAppend[pair.first!.startNode] = edges
+//                        }
+                        for pair in pairs {
+                            let edge = Edge(pair: pair)
+                            if edgesToAppend[pair.startNode] != nil {
+                                edgesToAppend[pair.startNode]!.append(edge)
+                            } else {
+                                edgesToAppend[pair.startNode] = [edge]
+                            }
                         }
                     }
 //                    print("Found relations for \(nodeId) in \(end - start) seconds")
+                }
+                for (start, edges) in edgesToAppend {
+                    for edge in edges {
+                        if references.keys.contains(edge.nodeEnd.id) == false {
+                            edgesToAppend[edge.nodeEnd] = [Edge(pair: (startNode: edge.nodeEnd, endNode: start, distanceToPrevious: edge.weight))]
+                        }
+                    }
                 }
                 self.serialSyncQueue.sync {
                     allEdges.merge(edgesToAppend) { $0 + $1 }
