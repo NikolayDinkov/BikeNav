@@ -330,10 +330,10 @@ class RawFile {
                         continue
                     }
                     
-                    let namedWays = ways.filter { $0.keyVal["name"] != nil || $0.keyVal["ref"] != nil } // || $0.keyVal["ref"] != nil
-                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] }) // MARK: !!! if we are using refs we should do smtg about it alse here
-                    let uniqueRefs = Set(ways.compactMap { $0.keyVal["ref"] })
-                    if namedWays.count >= 3 || (uniqueNames.count) >= 2 || uniqueRefs.count >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
+//                    let namedWays = ways.filter { $0.keyVal["name"] != nil || $0.keyVal["ref"] != nil } // || $0.keyVal["ref"] != nil
+                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] ?? $0.keyVal["ref"] }) // MARK: !!! if we are using refs we should do smtg about it alse here
+//                    let uniqueRefs = Set(ways.compactMap { $0.keyVal["ref"] })
+                    if (uniqueNames.count) >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
                         currentIterrationToStay.append(id)
                     }
                 }
@@ -365,6 +365,18 @@ class RawFile {
 //        }
 //        references = newReferences
 
+        for way in ways {
+            guard let first = way.nodeRefs.first, let last = way.nodeRefs.last else {
+                fatalError()
+            }
+            if references[first] == nil {
+                references[first] = [way]
+            }
+            if references[last] == nil {
+                references[last] = [way]
+            }
+        }
+        
         print("Finding crossroad relations")
         
         referencesCount = references.keys.count
@@ -414,13 +426,13 @@ class RawFile {
                     }
 //                    print("Found relations for \(nodeId) in \(end - start) seconds")
                 }
-                for (start, edges) in edgesToAppend {
-                    for edge in edges {
-                        if references.keys.contains(edge.nodeEnd.id) == false {
-                            edgesToAppend[edge.nodeEnd] = [Edge(pair: (startNode: edge.nodeEnd, endNode: start, distanceToPrevious: edge.weight))]
-                        }
-                    }
-                }
+//                for (start, edges) in edgesToAppend {
+//                    for edge in edges {
+//                        if references.keys.contains(edge.nodeEnd.id) == false {
+//                            edgesToAppend[edge.nodeEnd] = [Edge(pair: (startNode: edge.nodeEnd, endNode: start, distanceToPrevious: edge.weight))]
+//                        }
+//                    }
+//                }
                 self.serialSyncQueue.sync {
                     allEdges.merge(edgesToAppend) { $0 + $1 }
                 }
@@ -799,12 +811,14 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
-                var path = graph.findRoad(from: 250056671, to: 186119554)
+//                var path = graph.findRoad(from: 2179725730, to: 248927447)
                 // 250061352, 458757855, 250061353
-                while path.segmentPrev != nil {
-                    print("\(path.node) 21")
-                    path = path.segmentPrev!
-                }
+//                let start = path
+//                while path.segmentPrev != nil {
+//                    print("\(path.node) 21")
+//                    path = path.segmentPrev!
+//                }
+//                print("Distance is \(start.distance)")
 //                path.printIt()
 //                print(path.segmentPrev?.node)
                 return graph

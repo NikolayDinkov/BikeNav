@@ -9,11 +9,9 @@ import SwiftUI
 
 @main
 struct BikeNavApp: App {
-    let graph = RawFile().launch()
-    
     var body: some Scene {
         WindowGroup {
-            ContentView(graph: graph)
+            ContentView()
         }
     }
 }

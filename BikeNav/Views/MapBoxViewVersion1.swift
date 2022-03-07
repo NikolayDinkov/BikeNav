@@ -17,8 +17,8 @@ struct MapBoxViewVersion1: UIViewRepresentable {
 
     private let nodesSofia: [DenseNodeNew]
 
-    init(graph: Graph) {
-        self.graph = graph
+    init() {
+        self.graph = RawFile().launch()
 
         let myResourceOptions = ResourceOptions(accessToken: Secrets.mapboxPublicToken)
         let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions, styleURI: StyleURI(rawValue: Secrets.mapboxStylePath))
@@ -40,7 +40,7 @@ struct MapBoxViewVersion1: UIViewRepresentable {
             node.longitude < (23.32 + 0.2) && node.longitude > (23.32 - 0.2)
         }
 
-        pointAnnotation.annotations = nodesSofia.map { node in
+        pointAnnotation.annotations = graph.map.keys.map { node in
             var annotation = PointAnnotation(coordinate: CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude))
             annotation.iconSize = 0.06
             annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
@@ -59,7 +59,7 @@ struct MapBoxViewVersion1: UIViewRepresentable {
     
     func makeUIView(context: Context) -> MapView {
         
-        let lines = nodesSofia.flatMap { node -> [PolylineAnnotation] in
+        let lines = graph.map.keys.flatMap { node -> [PolylineAnnotation] in
             let edges = graph.map[node]!
             return edges.map { edge -> PolylineAnnotation in
                 var annotation = PolylineAnnotation(

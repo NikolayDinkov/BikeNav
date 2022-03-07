@@ -25,6 +25,7 @@
 		5A92750727AD30E30070EEA3 /* DenseNodeNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */; };
 		5A92750927AD50360070EEA3 /* WayNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750827AD50360070EEA3 /* WayNew.swift */; };
 		5A92750B27B12E290070EEA3 /* bulgaria-140101.osm.pbf in Resources */ = {isa = PBXBuildFile; fileRef = 5A92750A27B12C8F0070EEA3 /* bulgaria-140101.osm.pbf */; };
+		5AF8C1E627D61EEC007205C1 /* MapboxMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +46,7 @@
 		5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DenseNodeNew.swift; sourceTree = "<group>"; };
 		5A92750827AD50360070EEA3 /* WayNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WayNew.swift; sourceTree = "<group>"; };
 		5A92750A27B12C8F0070EEA3 /* bulgaria-140101.osm.pbf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bulgaria-140101.osm.pbf"; sourceTree = "<group>"; };
+		5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapboxMapView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -121,6 +123,7 @@
 			isa = PBXGroup;
 			children = (
 				5A9274E627A2CDF20070EEA3 /* ContentView.swift */,
+				5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */,
 				5A4B18C027CCB85500B42BB2 /* MapBoxViewVersion1.swift */,
 				5A4B18C227CCB86D00B42BB2 /* Secrets.swift */,
 			);
@@ -230,6 +233,7 @@
 				5A90A54727C51E84004EB933 /* Graph.swift in Sources */,
 				5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */,
 				5A92750927AD50360070EEA3 /* WayNew.swift in Sources */,
+				5AF8C1E627D61EEC007205C1 /* MapboxMapView.swift in Sources */,
 				5A4B18C327CCB86D00B42BB2 /* Secrets.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

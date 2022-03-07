@@ -8,19 +8,15 @@
 import SwiftUI
 
 struct ContentView: View {
-    private var graph: Graph
-    
-    init(graph: Graph) {
-        self.graph = graph
-    }
+    init() {}
     
     var body: some View {
-        MapBoxViewVersion1(graph: graph)
+        MapboxMapView()
     }
 }
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View {
-        ContentView(graph: Graph(map: [:]))
+        ContentView()
     }
 }
