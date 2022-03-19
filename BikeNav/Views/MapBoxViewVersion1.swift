@@ -58,7 +58,6 @@ struct MapBoxViewVersion1: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> MapView {
-        
         let lines = graph.map.keys.flatMap { node -> [PolylineAnnotation] in
             let edges = graph.map[node]!
             return edges.map { edge -> PolylineAnnotation in

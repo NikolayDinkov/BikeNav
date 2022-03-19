@@ -12,7 +12,6 @@ struct MapboxMapView: UIViewRepresentable {
     private var graph: Graph
     
     private var map: MapView
-    private var routeAnnotation: PolylineAnnotationManager
     private var lineAnnotation: PolylineAnnotationManager
     private var pointAnnotation: PointAnnotationManager
     
@@ -22,7 +21,7 @@ struct MapboxMapView: UIViewRepresentable {
         self.graph = RawFile().launch()
 
         let myResourceOptions = ResourceOptions(accessToken: Secrets.mapboxPublicToken)
-        let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions, styleURI: StyleURI(rawValue: Secrets.mapboxStylePath))
+        let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions)
         map = MapView(frame: CGRect(x: 0, y: 0, width: 64, height: 64), mapInitOptions: myMapInitOptions)
         map.ornaments.options.scaleBar.visibility = .hidden
 
@@ -30,15 +29,10 @@ struct MapboxMapView: UIViewRepresentable {
             id: "line_manager",
             layerPosition: LayerPosition.default
         )
-
-        routeAnnotation = map.annotations.makePolylineAnnotationManager(
-            id: "route_manager",
-            layerPosition: LayerPosition.above("line_manager")
-        )
         
         pointAnnotation = map.annotations.makePointAnnotationManager(
             id: "point_manager",
-            layerPosition: LayerPosition.above("road_manager")
+            layerPosition: LayerPosition.above("line_manager")
         )
 
         let sw = CLLocationCoordinate2D(latitude: 41.226810000,
@@ -52,15 +46,7 @@ struct MapboxMapView: UIViewRepresentable {
     }
     
     func makeUIView(context: Context) -> MapView {
-        
-        
-        
-        pointAnnotation.annotations = graph.map.keys.map { node in
-            var annotation = PointAnnotation(coordinate: CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude))
-            annotation.iconSize = 0.06
-            annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
-            return annotation
-        }
+
         map.gestures.singleTapGestureRecognizer.addTarget(context.coordinator, action: #selector(Coordinator.handleMapTap(sender:)))
         return map
     }
@@ -117,16 +103,15 @@ extension MapboxMapView {
             var nodesOfRoute = [DenseNodeNew]()
             while let prevSegment = route.segmentPrev { // MARK: There is problem somwhere here
                 route = prevSegment
-                print(prevSegment.node)
                 nodesOfRoute.append(prevSegment.node)
             }
-            
+//            nodesOfRoute.append(route.node)
             let after = Date().timeIntervalSince1970
             print("It took \(after - before) seconds")
             
             (map.annotations.annotationManagersById["point_manager"] as! PointAnnotationManager).annotations = nodesOfRoute.map { node in
                 var annotation = PointAnnotation(coordinate: CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude))
-                annotation.iconSize = 0.1
+                annotation.iconSize = 0.25
                 annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
                 return annotation
             }
