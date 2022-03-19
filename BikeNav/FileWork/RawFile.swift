@@ -265,6 +265,7 @@ class RawFile {
         for way in primitiveGroup.ways {
             var shouldAppend = false
             var hasName = false
+            var underConstruction = false
             var keyVal = [String: String]()
             for (key, value) in zip(way.keys, way.vals) {
                 let keyString = String(data: stringTable.s[Int(key)], encoding: .utf8)!
@@ -272,11 +273,15 @@ class RawFile {
                     shouldAppend = true
                 } else if keyString == "name" || keyString == "ref" { // MARK: Here maybe we need to add somoething about "ref"
                     hasName = true
+                } else if keyString == "construction" {
+                    underConstruction = true
+                    break
                 }
                 let valString = String(data: stringTable.s[Int(value)], encoding: .utf8)!
                 keyVal[keyString] = valString
             }
             
+            guard !underConstruction else { continue }
             guard shouldAppend, hasName else { continue }
             
             var deltaDecoderID = DeltaDecoder(previous: 0)
