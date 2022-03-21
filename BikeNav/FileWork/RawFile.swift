@@ -28,19 +28,42 @@ class RawFile {
     private var sortedWays: [WaySmaller] = [WaySmaller]()
     private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
         
+    private func downloadFile() -> Data {
+        print("Initiated downloading")
+        let before = Date().timeIntervalSince1970
+        
+        let semaphore = DispatchSemaphore.init(value: 0)
+        var fileData: Data?
+        let fileURL = URL(string: "https://download.geofabrik.de/europe/bulgaria-220320.osm.pbf")!
+        
+        URLSession.shared.dataTask(with: fileURL) { urlData, urlResponse, error in
+            defer { semaphore.signal() }
+            
+            guard let urlData = urlData else { return }
+            fileData = urlData
+            
+        }.resume()
+        
+        semaphore.wait()
+        
+        let after = Date().timeIntervalSince1970
+        print("Downloaded in \(after - before) seconds")
+        return fileData!
+    }
+    
     private func readFile() {
         print("Reading the file")
-        guard let fileURL = Bundle.main.url(forResource: "bulgaria-220213.osm", withExtension: ".pbf") else {
-//        guard let fileURL = Bundle.main.url(forResource: "bulgaria-140101.osm", withExtension: ".pbf") else {
-            assert(false)
-            return
-        }
+        
+//        guard let fileURL = Bundle.main.url(forResource: "bulgaria-latest.osm", withExtension: ".pbf") else {
+//            assert(false)
+//            return
+//        }
         let before = Date().timeIntervalSince1970
 
         let readingGroup = DispatchGroup() // Sync blobs decoding
         var fileData: Data
         do {
-            fileData = try Data(contentsOf: fileURL)
+            fileData = downloadFile()
             var parser = Parser(data: fileData)
             while parser.data.count > parser.offset { // MARK: Cannot use threads for the reading, but can for handling
                 let headerLength = Int(parser.parseLEUInt32()!)
