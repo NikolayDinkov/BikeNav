@@ -8,10 +8,21 @@
 import SwiftUI
 
 struct ContentView: View {
-    init() {}
+    @State var graph: Graph?
+    
+    init() {
+        RawFile().launch { myGraph in
+            self.graph = myGraph
+        }
+    }
     
     var body: some View {
-        MapboxMapView()
+        if let graph = graph {
+            MapboxMapView()
+        } else {
+            Text("Loading")
+        }
+        
     }
 }
 

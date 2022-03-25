@@ -43,6 +43,14 @@ struct Edge {
 struct Graph {
     let map: [DenseNodeNew: [Edge]]
     
+    func isEmpty() -> Bool {
+        if map.count == 0 {
+            return true
+        } else {
+            return false
+        }
+    }
+    
     func findRoad(from nodeIdStart: Int, to nodeIdEnd: Int) -> PathSegment {
         guard let nodeStart = map.keys.first(where: { $0.id == nodeIdStart }) else {
             return PathSegment(node: DenseNodeNew(id: 0, latCalculated: 0.0, lonCalculated: 0.0), distance: 0.0, segmentPrev: nil)

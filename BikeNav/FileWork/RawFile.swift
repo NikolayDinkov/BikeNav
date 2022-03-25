@@ -28,30 +28,29 @@ class RawFile {
     private var sortedWays: [WaySmaller] = [WaySmaller]()
     private var references: [Int: [WayNew]] = [Int: [WayNew]]() //MARK: It could be not int but DenseNodeNew and in it to be for example name later on for the graph and to delete nodes array once we calculate the distance of a way
         
-    private func downloadFile() -> Data {
+    private func downloadFile(completionHandler: @escaping(Data?) -> Void) {
         print("Initiated downloading")
         let before = Date().timeIntervalSince1970
         
-        let semaphore = DispatchSemaphore.init(value: 0)
-        var fileData: Data?
         let fileURL = URL(string: "https://download.geofabrik.de/europe/bulgaria-220320.osm.pbf")!
         
         URLSession.shared.dataTask(with: fileURL) { urlData, urlResponse, error in
-            defer { semaphore.signal() }
+            guard let urlData = urlData, error == nil else {
+                completionHandler(nil)
+                return
+            }
             
-            guard let urlData = urlData else { return }
-            fileData = urlData
+            let fileData = urlData
+            let after = Date().timeIntervalSince1970
+            print("Downloaded in \(after - before) seconds")
             
+            completionHandler(fileData)
         }.resume()
         
-        semaphore.wait()
         
-        let after = Date().timeIntervalSince1970
-        print("Downloaded in \(after - before) seconds")
-        return fileData!
     }
     
-    private func readFile() {
+    private func readFile(fileData: Data) {
         print("Reading the file")
         
 //        guard let fileURL = Bundle.main.url(forResource: "bulgaria-latest.osm", withExtension: ".pbf") else {
@@ -61,9 +60,8 @@ class RawFile {
         let before = Date().timeIntervalSince1970
 
         let readingGroup = DispatchGroup() // Sync blobs decoding
-        var fileData: Data
+//        var fileData: Data
         do {
-            fileData = downloadFile()
             var parser = Parser(data: fileData)
             while parser.data.count > parser.offset { // MARK: Cannot use threads for the reading, but can for handling
                 let headerLength = Int(parser.parseLEUInt32()!)
@@ -830,7 +828,7 @@ extension Collection where Iterator.Element: Comparable, Self.Index == Int {
 }
 
 extension RawFile {
-    func launch() -> Graph {
+    func launch(completionHandler: @escaping(Graph) -> Void) {
         let before = Date().timeIntervalSince1970
         let filePath = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("graph.short")
         print(filePath)
@@ -849,29 +847,30 @@ extension RawFile {
 //                print("Distance is \(start.distance)")
 //                path.printIt()
 //                print(path.segmentPrev?.node)
-                return graph
+                completionHandler(graph)
             } catch {
                 print("Error opening the smaller file with the graph")
-                return Graph(map: [:])
+                completionHandler(Graph(map: [:]))
             }
         } else {
-            
-            self.readFile()
-            self.handlePrimitiveBlocks()
-            self.parseWaysFromFile()
-            self.parseNodes()
-            self.sortNodesAndWays()
-            let graph = self.reduceMap()
-            do {
-                let jsonResultData = try JSONEncoder().encode(graph)
-                try jsonResultData.write(to: filePath)
-            } catch {
-                print("Error making smaller and faster for loading file")
-                return Graph(map: [:])
+            downloadFile { data in
+                self.readFile(fileData: data!)
+                self.handlePrimitiveBlocks()
+                self.parseWaysFromFile()
+                self.parseNodes()
+                self.sortNodesAndWays()
+                let graph = self.reduceMap()
+                do {
+                    let jsonResultData = try JSONEncoder().encode(graph)
+                    try jsonResultData.write(to: filePath)
+                } catch {
+                    print("Error making smaller and faster for loading file")
+                    completionHandler(Graph(map: [:]))
+                }
+                let after = Date().timeIntervalSince1970
+                print("Took \(after - before) seconds")
+                completionHandler(graph)
             }
-            let after = Date().timeIntervalSince1970
-            print("Took \(after - before) seconds")
-            return graph
         }
     }
 }
