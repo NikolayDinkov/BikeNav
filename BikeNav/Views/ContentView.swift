@@ -10,19 +10,17 @@ import SwiftUI
 struct ContentView: View {
     @State var graph: Graph?
     
-    init() {
-        RawFile().launch { myGraph in
-            self.graph = myGraph
-        }
-    }
-    
     var body: some View {
         if let graph = graph {
-            MapboxMapView()
+            MapboxMapView(myGraph: graph)
         } else {
             Text("Loading")
+                .onAppear {
+                    RawFile().launch { myGraph in
+                        self.graph = myGraph
+                    }
+                }
         }
-        
     }
 }
 

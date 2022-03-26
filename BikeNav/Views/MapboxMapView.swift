@@ -9,11 +9,7 @@ import SwiftUI
 import MapboxMaps
 
 struct MapboxMapView: UIViewRepresentable {
-    private var graph: Graph? {
-        didSet {
-            self.makeCoordinator()
-        }
-    }
+    private var graph: Graph?
     
     private var map: MapView
     private var lineAnnotation: PolylineAnnotationManager
@@ -21,7 +17,7 @@ struct MapboxMapView: UIViewRepresentable {
     
     private let nodesRoute: [DenseNodeNew] = []
     
-    init() {
+    init(myGraph: Graph) {
         let myResourceOptions = ResourceOptions(accessToken: Secrets.mapboxPublicToken)
         let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions)
         map = MapView(frame: CGRect(x: 0, y: 0, width: 64, height: 64), mapInitOptions: myMapInitOptions)
@@ -46,9 +42,7 @@ struct MapboxMapView: UIViewRepresentable {
         let newCamera = map.mapboxMap.camera(for: shownRectBounds, padding: .zero, bearing: 0, pitch: 0)
         map.mapboxMap.setCamera(to: newCamera)
         
-        RawFile().launch { myGraph in
-            self.graph = myGraph
-        }
+        self.graph = myGraph
     }
     
     func makeUIView(context: Context) -> MapView {
