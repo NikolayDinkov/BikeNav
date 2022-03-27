@@ -837,16 +837,8 @@ extension RawFile {
                 let jsonData = try Data(contentsOf: filePath)
                 let jsonDecoder = JSONDecoder()
                 let graph = try jsonDecoder.decode(Graph.self, from: jsonData)
-//                var path = graph.findRoad(from: 2179725730, to: 248927447)
-                // 250061352, 458757855, 250061353
-//                let start = path
-//                while path.segmentPrev != nil {
-//                    print("\(path.node) 21")
-//                    path = path.segmentPrev!
-//                }
-//                print("Distance is \(start.distance)")
-//                path.printIt()
-//                print(path.segmentPrev?.node)
+                let after = Date().timeIntervalSince1970
+                print("Took \(after - before) seconds")
                 completionHandler(graph)
             } catch {
                 print("Error opening the smaller file with the graph")
