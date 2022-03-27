@@ -110,6 +110,22 @@ extension MapboxMapView {
                 route = prevSegment
                 nodesOfRoute.append(prevSegment.node)
             }
+            
+            var lines = [PolylineAnnotation]()
+            var prevNode = nodesOfRoute[0]
+            for node in nodesOfRoute[1 ..< nodesOfRoute.count] {
+                var annotation = PolylineAnnotation(
+                    lineCoordinates: [
+                        CLLocationCoordinate2D(latitude: prevNode.latitude, longitude: prevNode.longitude),
+                        CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude)
+                    ]
+                )
+                annotation.lineColor = .init(.green)
+                annotation.lineWidth = 4
+                lines.append(annotation)
+                prevNode = node
+            }
+            
             let after = Date().timeIntervalSince1970
             print("It took \(after - before) seconds")
             
@@ -119,9 +135,7 @@ extension MapboxMapView {
                 annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
                 return annotation
             }
-//            (map.annotations.annotationManagersById["line_manager"] as! PolylineAnnotationManager).annotations = nodesOfRoute.map {
-//
-//            }
+            (map.annotations.annotationManagersById["line_manager"] as! PolylineAnnotationManager).annotations = lines
         }
     }
 }
