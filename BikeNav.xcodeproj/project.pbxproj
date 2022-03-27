@@ -10,7 +10,7 @@
 		5A3CAE9527B7CFBE006698D5 /* ArrayDictAppender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */; };
 		5A3CAE9727BA9434006698D5 /* bulgaria-220213.osm.pbf in Resources */ = {isa = PBXBuildFile; fileRef = 5A3CAE9627BA9434006698D5 /* bulgaria-220213.osm.pbf */; };
 		5A4B18BF27CCA73100B42BB2 /* MapboxMaps in Frameworks */ = {isa = PBXBuildFile; productRef = 5A4B18BE27CCA73100B42BB2 /* MapboxMaps */; };
-		5A4B18C127CCB85500B42BB2 /* MapBoxViewVersion1.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B18C027CCB85500B42BB2 /* MapBoxViewVersion1.swift */; };
+		5A4B18C127CCB85500B42BB2 /* MapBoxFullGraphView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B18C027CCB85500B42BB2 /* MapBoxFullGraphView.swift */; };
 		5A4B18C327CCB86D00B42BB2 /* Secrets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4B18C227CCB86D00B42BB2 /* Secrets.swift */; };
 		5A90A54727C51E84004EB933 /* Graph.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A90A54627C51E84004EB933 /* Graph.swift */; };
 		5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9274E427A2CDF20070EEA3 /* BikeNavApp.swift */; };
@@ -32,7 +32,7 @@
 /* Begin PBXFileReference section */
 		5A3CAE9427B7CFBE006698D5 /* ArrayDictAppender.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArrayDictAppender.swift; sourceTree = "<group>"; };
 		5A3CAE9627BA9434006698D5 /* bulgaria-220213.osm.pbf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bulgaria-220213.osm.pbf"; sourceTree = "<group>"; };
-		5A4B18C027CCB85500B42BB2 /* MapBoxViewVersion1.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapBoxViewVersion1.swift; sourceTree = "<group>"; };
+		5A4B18C027CCB85500B42BB2 /* MapBoxFullGraphView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapBoxFullGraphView.swift; sourceTree = "<group>"; };
 		5A4B18C227CCB86D00B42BB2 /* Secrets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Secrets.swift; sourceTree = "<group>"; };
 		5A90A54627C51E84004EB933 /* Graph.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Graph.swift; sourceTree = "<group>"; };
 		5A9274E127A2CDF20070EEA3 /* BikeNav.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BikeNav.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -127,7 +127,7 @@
 			children = (
 				5A9274E627A2CDF20070EEA3 /* ContentView.swift */,
 				5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */,
-				5A4B18C027CCB85500B42BB2 /* MapBoxViewVersion1.swift */,
+				5A4B18C027CCB85500B42BB2 /* MapBoxFullGraphView.swift */,
 				5A4B18C227CCB86D00B42BB2 /* Secrets.swift */,
 			);
 			path = Views;
@@ -232,7 +232,7 @@
 				5A9274E727A2CDF20070EEA3 /* ContentView.swift in Sources */,
 				5A9274F727A2CEAA0070EEA3 /* RawFile.swift in Sources */,
 				5A3CAE9527B7CFBE006698D5 /* ArrayDictAppender.swift in Sources */,
-				5A4B18C127CCB85500B42BB2 /* MapBoxViewVersion1.swift in Sources */,
+				5A4B18C127CCB85500B42BB2 /* MapBoxFullGraphView.swift in Sources */,
 				5A9274F927A2CEAA0070EEA3 /* osmformat.swift in Sources */,
 				5A90A54727C51E84004EB933 /* Graph.swift in Sources */,
 				5A9274E527A2CDF20070EEA3 /* BikeNavApp.swift in Sources */,

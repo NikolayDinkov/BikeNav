@@ -8,7 +8,7 @@
 import SwiftUI
 import MapboxMaps
 
-struct MapBoxViewVersion1: UIViewRepresentable {
+struct MapBoxFullGraphView: UIViewRepresentable {
     private var graph: Graph
     private var map: MapView
 
