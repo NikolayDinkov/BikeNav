@@ -105,11 +105,11 @@ extension MapboxMapView {
             
             var route = graph.findRoad(from: startNode.id, to: endNode.id)
             var nodesOfRoute = [DenseNodeNew]()
+            nodesOfRoute.append(route.node)
             while let prevSegment = route.segmentPrev { // MARK: There is problem somwhere here
                 route = prevSegment
                 nodesOfRoute.append(prevSegment.node)
             }
-//            nodesOfRoute.append(route.node)
             let after = Date().timeIntervalSince1970
             print("It took \(after - before) seconds")
             
@@ -119,6 +119,9 @@ extension MapboxMapView {
                 annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
                 return annotation
             }
+//            (map.annotations.annotationManagersById["line_manager"] as! PolylineAnnotationManager).annotations = nodesOfRoute.map {
+//
+//            }
         }
     }
 }
