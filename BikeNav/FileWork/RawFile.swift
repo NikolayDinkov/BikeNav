@@ -74,7 +74,7 @@ class RawFile {
 //                    let headerBlock = try OSMPBF_HeaderBlock(serializedData: decompressedData as Data)
                     break
                 case "OSMData":
-                    readingGroup.enter() // Start a task
+                    readingGroup.enter()
                     parallelProcessingQueue.async {
                         do {
                             let blob = try OSMPBF_Blob(serializedData: blobData)
@@ -775,7 +775,7 @@ struct Parser {
         guard data.count >= offset + expected else { return nil }
         defer { offset += expected }
         
-        return data[offset..<offset+expected].reduce(0, { soFar, new in (soFar << 8) | Result(new) })
+        return data[offset..<offset + expected].reduce(0, { soFar, new in (soFar << 8) | Result(new) })
     }
     
     mutating func parseLEUInt8() -> UInt8? {
