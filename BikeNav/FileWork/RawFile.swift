@@ -32,7 +32,7 @@ class RawFile {
         print("Initiated downloading")
         let before = Date().timeIntervalSince1970
         
-        let fileURL = URL(string: "https://download.geofabrik.de/europe/bulgaria-220320.osm.pbf")!
+        let fileURL = URL(string: "https://download.geofabrik.de/europe/bulgaria-latest.osm.pbf")!
         
         URLSession.shared.dataTask(with: fileURL) { urlData, urlResponse, error in
             guard let urlData = urlData, error == nil else {
@@ -46,8 +46,6 @@ class RawFile {
             
             completionHandler(fileData)
         }.resume()
-        
-        
     }
     
     private func readFile(fileData: Data) {
@@ -59,11 +57,10 @@ class RawFile {
 //        }
         let before = Date().timeIntervalSince1970
 
-        let readingGroup = DispatchGroup() // Sync blobs decoding
-//        var fileData: Data
+        let readingGroup = DispatchGroup()
         do {
             var parser = Parser(data: fileData)
-            while parser.data.count > parser.offset { // MARK: Cannot use threads for the reading, but can for handling
+            while parser.data.count > parser.offset {
                 let headerLength = Int(parser.parseLEUInt32()!)
                 let headerRange = parser.offset ..< (headerLength + parser.offset)
                 let blobHeader = try OSMPBF_BlobHeader(serializedData: parser.data.subdata(in: headerRange))
@@ -86,16 +83,16 @@ class RawFile {
                             let primitiveBlock = try OSMPBF_PrimitiveBlock(serializedData: decompressedData as Data)
                             self.serialSyncQueue.sync {
                                 self.primitiveBLocks.append(primitiveBlock)
-                                readingGroup.leave() // Finish the task
+                                readingGroup.leave()
                             }
                         } catch {
                             print(error.localizedDescription)
                             assert(false)
-                            readingGroup.leave() // Task should also be finished in case of an error to allow the execution to continue
+                            readingGroup.leave()
                         }
                     }
                 default:
-                    print("Bad")
+                    print("Not possible case")
                 }
             }
             print("File opened")
@@ -105,7 +102,7 @@ class RawFile {
             return
         }
 
-        readingGroup.wait() // Execution will stop here until the number of .enter() is balanced by the number of .leave() in the parallel closures
+        readingGroup.wait()
         let after = Date().timeIntervalSince1970
         print("Read in \(after - before) seconds")
     }
@@ -160,14 +157,14 @@ class RawFile {
                 var waysToAdd = [WayNew]()
                 var dictToAdd = [Int: [WayNew]]()
                 
-                for primitiveBlock in primitiveBlocksForIteration { // MARK: ADD needed things
-                    for primitiveGroup in primitiveBlock.primitivegroup { // MARK: Care when using and synchronizing the threads
+                for primitiveBlock in primitiveBlocksForIteration {
+                    for primitiveGroup in primitiveBlock.primitivegroup {
                         let arrayDictAppender = handleWays(primitiveGroup: primitiveGroup, stringTable: primitiveBlock.stringtable)
                         waysToAdd.append(contentsOf: arrayDictAppender.waysForAppending)
                         dictToAdd.merge(arrayDictAppender.dictForAppending) { $0 + $1 }
                     }
                 }
-                self.serialSyncQueue.sync { // MARK: Can we use here DispatchGroup, because it takes some time
+                self.serialSyncQueue.sync {
                     self.ways.append(contentsOf: waysToAdd)
                     self.references.merge(dictToAdd) { $0 + $1 }
                 }
@@ -178,7 +175,6 @@ class RawFile {
         let after = Date().timeIntervalSince1970
         print("Parsed in \(after - before) seconds")
         print("\(nodes.count) - \(ways.count) - \(references.count)")
-        
     }
     
     private func parseNodes() {
@@ -221,7 +217,6 @@ class RawFile {
         let after = Date().timeIntervalSince1970
         print("Parsed in \(after - before) seconds")
         print("\(nodes.count) - \(ways.count) - \(references.count)")
-        
     }
     
     private func handleNodes(primitiveGroup: OSMPBF_PrimitiveGroup, latOffset: Int64, lonOffset: Int64, granularity: Int32, stringTable: OSMPBF_StringTable) -> [DenseNodeNew] {
@@ -356,10 +351,8 @@ class RawFile {
                         continue
                     }
                     
-//                    let namedWays = ways.filter { $0.keyVal["name"] != nil || $0.keyVal["ref"] != nil } // || $0.keyVal["ref"] != nil
-                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] ?? $0.keyVal["ref"] }) // MARK: !!! if we are using refs we should do smtg about it alse here
-//                    let uniqueRefs = Set(ways.compactMap { $0.keyVal["ref"] })
-                    if (uniqueNames.count) >= 2 { // MARK: ,ways.count > 1 is giving 7 less id's to add | need help here
+                    let uniqueNames = Set(ways.compactMap { $0.keyVal["name"] ?? $0.keyVal["ref"] })
+                    if (uniqueNames.count) >= 2 {
                         currentIterrationToStay.append(id)
                     }
                 }
@@ -369,10 +362,10 @@ class RawFile {
                 }
             }
         }
+        
         let after = Date().timeIntervalSince1970
         print("Reduced in \((after - before)) seconds")
         print("Nodes which we want: \(nodeIdsToStay.count)")
-        
         
         let before3 = Date().timeIntervalSince1970
         var referencesNew = [Int: [WayNew]]()
@@ -423,7 +416,7 @@ class RawFile {
                 var edgesToAppend = [DenseNodeNew: [Edge]]()
                 let nodeIds = Array(self.references.keys)[startIndex..<endIndex]
                 for nodeId in nodeIds {
-//                    print("Started at \(nodeId)")
+
                     let ways = references[nodeId]
                     for way in ways! {
                         let pairs = nextCrossroads(startCrossroadId: nodeId, way: way, nodeIdsToStay: nodeIdsToStay)
