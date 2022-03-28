@@ -71,7 +71,6 @@ class RawFile {
 
                 switch blobHeader.type {
                 case "OSMHeader":
-//                    let headerBlock = try OSMPBF_HeaderBlock(serializedData: decompressedData as Data)
                     break
                 case "OSMData":
                     readingGroup.enter()
@@ -109,9 +108,9 @@ class RawFile {
     
     private func handlePrimitiveBlocks() {
         let before = Date().timeIntervalSince1970
-        var forWays = false
-        var forNode = false
         for primitiveBLock in primitiveBLocks {
+            var forWays = false
+            var forNode = false
             for primitiveGroup in primitiveBLock.primitivegroup {
                 if primitiveGroup.hasDense == true {
                     forNode = true
@@ -129,8 +128,7 @@ class RawFile {
         }
         primitiveBLocks.removeAll()
         let after = Date().timeIntervalSince1970
-        print("Read in \(after - before) seconds")
-        
+        print("Filtered in \(after - before) seconds")
     }
     
     private func parseWaysFromFile() {
