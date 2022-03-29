@@ -20,14 +20,6 @@ class PathSegment {
         self.distance = distance
         self.segmentPrev = segmentPrev
     }
-//    func printIt() {
-//        print("Started at \(node)")
-//        while segmentPrev != nil {
-//            print("\(node)")
-//            self.segmentPrev = segmentPrev?.segmentPrev
-//        }
-//        print("Distance is \(distance)")
-//    }
 }
 
 struct Edge {
@@ -43,14 +35,6 @@ struct Edge {
 struct Graph {
     let map: [DenseNodeNew: [Edge]]
     
-    func isEmpty() -> Bool {
-        if map.count == 0 {
-            return true
-        } else {
-            return false
-        }
-    }
-    
     func findRoad(from nodeIdStart: Int, to nodeIdEnd: Int) -> PathSegment {
         guard let nodeStart = map.keys.first(where: { $0.id == nodeIdStart }) else {
             return PathSegment(node: DenseNodeNew(id: 0, latCalculated: 0.0, lonCalculated: 0.0), distance: 0.0, segmentPrev: nil)
@@ -65,19 +49,17 @@ struct Graph {
             }
         }
         prioQueue.append(PathSegment(node: nodeStart, distance: 0.0, segmentPrev: nil))
-//        print(prioQueue[0].node)
+
         while prioQueue.isEmpty == false {
             let pathCurrent = prioQueue.removeFirst()
-            guard nodesCrossedId.contains(pathCurrent.node.id) == false else { // not going on already passed node
+            guard nodesCrossedId.contains(pathCurrent.node.id) == false else {
                 continue
             }
             nodesCrossedId.append(pathCurrent.node.id)
             if pathCurrent.node == nodeEnd {
                 return pathCurrent
             }
-//            guard map[pathCurrent.node] != nil else {
-//                continue
-//            }
+
             for edge in map[pathCurrent.node]! {
                 prioQueue.append(PathSegment(node: edge.nodeEnd, distance: pathCurrent.distance + edge.weight, segmentPrev: pathCurrent))
             }

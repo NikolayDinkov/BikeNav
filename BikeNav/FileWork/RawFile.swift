@@ -242,7 +242,7 @@ class RawFile {
         let flattened = zip(primitiveGroup.dense.id, latLon).map { tupleOld in
             return (tupleOld.0, tupleOld.1.0, tupleOld.1.1)
         }
-        var deltaDecoderID = DeltaDecoder(previous: 0) // MARK: Will have problem when using threads
+        var deltaDecoderID = DeltaDecoder(previous: 0)
         var deltaDecoderLat = DeltaDecoder(previous: 0)
         var deltaDecoderLon = DeltaDecoder(previous: 0)
 
