@@ -23,7 +23,6 @@
 		5A92750727AD30E30070EEA3 /* DenseNodeNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */; };
 		5A92750927AD50360070EEA3 /* WayNew.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A92750827AD50360070EEA3 /* WayNew.swift */; };
 		5AF8C1E627D61EEC007205C1 /* MapboxMapView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */; };
-		5AF8C1EA27E8B69E007205C1 /* bulgaria-latest.osm.pbf in Resources */ = {isa = PBXBuildFile; fileRef = 5AF8C1E927E8B69E007205C1 /* bulgaria-latest.osm.pbf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -42,7 +41,6 @@
 		5A92750627AD30E30070EEA3 /* DenseNodeNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DenseNodeNew.swift; sourceTree = "<group>"; };
 		5A92750827AD50360070EEA3 /* WayNew.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WayNew.swift; sourceTree = "<group>"; };
 		5AF8C1E527D61EEC007205C1 /* MapboxMapView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapboxMapView.swift; sourceTree = "<group>"; };
-		5AF8C1E927E8B69E007205C1 /* bulgaria-latest.osm.pbf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "bulgaria-latest.osm.pbf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -99,7 +97,6 @@
 		5A92750127ABD44B0070EEA3 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				5AF8C1E927E8B69E007205C1 /* bulgaria-latest.osm.pbf */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -204,7 +201,6 @@
 			files = (
 				5A9274EC27A2CDF40070EEA3 /* Preview Assets.xcassets in Resources */,
 				5A9274E927A2CDF40070EEA3 /* Assets.xcassets in Resources */,
-				5AF8C1EA27E8B69E007205C1 /* bulgaria-latest.osm.pbf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
