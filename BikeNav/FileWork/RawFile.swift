@@ -382,17 +382,17 @@ class RawFile {
 //        }
 //        references = newReferences
 
-        for way in ways {
-            guard let first = way.nodeRefs.first, let last = way.nodeRefs.last else {
-                fatalError()
-            }
-            if references[first] == nil {
-                references[first] = [way]
-            }
-            if references[last] == nil {
-                references[last] = [way]
-            }
-        }
+//        for way in ways {
+//            guard let first = way.nodeRefs.first, let last = way.nodeRefs.last else {
+//                fatalError()
+//            }
+//            if references[first] == nil {
+//                references[first] = [way]
+//            }
+//            if references[last] == nil {
+//                references[last] = [way]
+//            }
+//        }
         
         print("Finding crossroad relations")
         
@@ -443,13 +443,13 @@ class RawFile {
                     }
 //                    print("Found relations for \(nodeId) in \(end - start) seconds")
                 }
-//                for (start, edges) in edgesToAppend {
-//                    for edge in edges {
-//                        if references.keys.contains(edge.nodeEnd.id) == false {
-//                            edgesToAppend[edge.nodeEnd] = [Edge(pair: (startNode: edge.nodeEnd, endNode: start, distanceToPrevious: edge.weight))]
-//                        }
-//                    }
-//                }
+                for (start, edges) in edgesToAppend {
+                    for edge in edges {
+                        if references.keys.contains(edge.nodeEnd.id) == false {
+                            edgesToAppend[edge.nodeEnd] = [Edge(pair: (startNode: edge.nodeEnd, endNode: start, distanceToPrevious: edge.weight))]
+                        }
+                    }
+                }
                 self.serialSyncQueue.sync {
                     allEdges.merge(edgesToAppend) { $0 + $1 }
                 }

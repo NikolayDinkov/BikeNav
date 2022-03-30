@@ -106,7 +106,7 @@ extension MapboxMapView {
             var route = graph.findRoad(from: startNode.id, to: endNode.id)
             var nodesOfRoute = [DenseNodeNew]()
             nodesOfRoute.append(route.node)
-            while let prevSegment = route.segmentPrev { // MARK: There is problem somwhere here
+            while let prevSegment = route.segmentPrev {
                 route = prevSegment
                 nodesOfRoute.append(prevSegment.node)
             }
