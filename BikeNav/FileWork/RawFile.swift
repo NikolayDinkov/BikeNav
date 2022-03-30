@@ -735,7 +735,6 @@ class RawFile {
             }
         }
 
-        // FIXME if no other crossroad is found - find the very last (or first depending on start direction) node of the road
         return (referenceNode.id, length)
     }
     
