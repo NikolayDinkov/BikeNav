@@ -15,11 +15,15 @@ struct MapboxMapView: UIViewRepresentable {
     private var lineAnnotation: PolylineAnnotationManager
     private var pointAnnotation: PointAnnotationManager
     
+    private var pointAnnotationManagerStart: PointAnnotationManager
+    private var pointAnnotationManagerEnd: PointAnnotationManager
+    
     private let nodesRoute: [DenseNodeNew] = []
     
     init(myGraph: Graph) {
         let myResourceOptions = ResourceOptions(accessToken: Secrets.mapboxPublicToken)
-        let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions)
+        let centerCoordinate = CLLocationCoordinate2D(latitude: 42.698334, longitude: 23.319941)
+        let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions, cameraOptions: CameraOptions(center: centerCoordinate, zoom: 11.0))
         map = MapView(frame: CGRect(x: 0, y: 0, width: 64, height: 64), mapInitOptions: myMapInitOptions)
         map.ornaments.options.scaleBar.visibility = .hidden
 
@@ -33,14 +37,22 @@ struct MapboxMapView: UIViewRepresentable {
             layerPosition: LayerPosition.above("line_manager")
         )
 
-        let sw = CLLocationCoordinate2D(latitude: 41.226810000,
-                                        longitude: 29.188190000)
-        let ne = CLLocationCoordinate2D(latitude: 44.217770000,
-                                        longitude: 22.348750000)
+        pointAnnotationManagerStart = map.annotations.makePointAnnotationManager(
+            id: "start_manager"
+        )
 
-        let shownRectBounds = CoordinateBounds(southwest: sw, northeast: ne)
-        let newCamera = map.mapboxMap.camera(for: shownRectBounds, padding: .zero, bearing: 0, pitch: 0)
-        map.mapboxMap.setCamera(to: newCamera)
+        pointAnnotationManagerEnd = map.annotations.makePointAnnotationManager(
+            id: "end_manager"
+        )
+//
+//        let sw = CLLocationCoordinate2D(latitude: 41.226810000,
+//                                        longitude: 29.188190000)
+//        let ne = CLLocationCoordinate2D(latitude: 44.217770000,
+//                                        longitude: 22.348750000)
+//
+//        let shownRectBounds = CoordinateBounds(southwest: sw, northeast: ne)
+//        let newCamera = map.mapboxMap.camera(for: shownRectBounds, padding: .zero, bearing: 0, pitch: 0)
+//        map.mapboxMap.setCamera(to: newCamera)
         
         self.graph = myGraph
     }
@@ -82,7 +94,14 @@ extension MapboxMapView {
             
             if start == nil {
                 start = coordinate
+                var startAnnotation = PointAnnotation(coordinate: start!)
+                startAnnotation.image = .init(image: UIImage(named: "red_pin")!, name: "red_pin")
+                (mapView.annotations.annotationManagersById["start_manager"] as! PointAnnotationManager).annotations = [startAnnotation]
             } else {
+                var endAnnotation = PointAnnotation(coordinate: coordinate)
+                endAnnotation.image = .init(image: UIImage(named: "blue_pin")!, name: "blue_pin")
+                (mapView.annotations.annotationManagersById["end_manager"] as! PointAnnotationManager).annotations = [endAnnotation]
+                
                 findNprintRoute(start: start!, end: coordinate, map: mapView)
                 start = nil
             }
@@ -131,7 +150,7 @@ extension MapboxMapView {
             
             (map.annotations.annotationManagersById["point_manager"] as! PointAnnotationManager).annotations = nodesOfRoute.map { node in
                 var annotation = PointAnnotation(coordinate: CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude))
-                annotation.iconSize = 0.25
+                annotation.iconSize = 0.20
                 annotation.image = .init(image: UIImage(named: "reddot")!, name: "reddot")
                 return annotation
             }
