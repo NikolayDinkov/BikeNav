@@ -14,7 +14,10 @@ struct ContentView: View {
         if let graph = graph {
             MapboxMapView(myGraph: graph)
         } else {
-            Text("Loading")
+//            Text("Loading")
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                .scaleEffect(2.0)
                 .onAppear {
                     RawFile().launch { myGraph in
                         self.graph = myGraph
