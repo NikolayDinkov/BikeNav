@@ -44,15 +44,6 @@ struct MapboxMapView: UIViewRepresentable {
         pointAnnotationManagerEnd = map.annotations.makePointAnnotationManager(
             id: "end_manager"
         )
-//
-//        let sw = CLLocationCoordinate2D(latitude: 41.226810000,
-//                                        longitude: 29.188190000)
-//        let ne = CLLocationCoordinate2D(latitude: 44.217770000,
-//                                        longitude: 22.348750000)
-//
-//        let shownRectBounds = CoordinateBounds(southwest: sw, northeast: ne)
-//        let newCamera = map.mapboxMap.camera(for: shownRectBounds, padding: .zero, bearing: 0, pitch: 0)
-//        map.mapboxMap.setCamera(to: newCamera)
         
         self.graph = myGraph
     }
