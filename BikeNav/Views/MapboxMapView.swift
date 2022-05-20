@@ -20,7 +20,9 @@ struct MapboxMapView: UIViewRepresentable {
     
     private let nodesRoute: [DenseNodeNew] = []
     
-    init(myGraph: Graph) {
+    @Binding private var isLoading: Bool
+    
+    init(myGraph: Graph, isLoading: Binding<Bool>) {
         let myResourceOptions = ResourceOptions(accessToken: Secrets.mapboxPublicToken)
         let centerCoordinate = CLLocationCoordinate2D(latitude: 42.698334, longitude: 23.319941)
         let myMapInitOptions = MapInitOptions(resourceOptions: myResourceOptions, cameraOptions: CameraOptions(center: centerCoordinate, zoom: 11.0))
@@ -46,6 +48,7 @@ struct MapboxMapView: UIViewRepresentable {
         )
         
         self.graph = myGraph
+        self._isLoading = isLoading
     }
     
     func makeUIView(context: Context) -> MapView {
@@ -56,9 +59,9 @@ struct MapboxMapView: UIViewRepresentable {
     
     func makeCoordinator() -> Coordinator {
         if graph != nil {
-            return Coordinator(graph: graph!)
+            return Coordinator(self, graph: graph!)
         } else {
-            return Coordinator(graph: Graph(map: [:]))
+            return Coordinator(self, graph: Graph(map: [:]))
         }
     }
     
@@ -67,11 +70,16 @@ struct MapboxMapView: UIViewRepresentable {
 
 extension MapboxMapView {
     final class Coordinator: NSObject {
+        private let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
+        
         private let graph: Graph
         private var start: CLLocationCoordinate2D?
         
-        init(graph: Graph) {
+        private let parent: MapboxMapView
+        
+        init(_ parent: MapboxMapView ,graph: Graph) {
             self.graph = graph
+            self.parent = parent
         }
         
         @objc func handleMapTap(sender: UITapGestureRecognizer) {
@@ -83,24 +91,41 @@ extension MapboxMapView {
             let point = sender.location(in: mapView)
             let coordinate = mapView.mapboxMap.coordinate(for: point)
             
-            if start == nil {
+            if let start = start {
+                var endAnnotation = PointAnnotation(coordinate: coordinate)
+                endAnnotation.image = .init(image: UIImage(named: "blue_pin")!, name: "blue_pin")
+                (mapView.annotations.annotationManagersById["end_manager"] as! PointAnnotationManager).annotations = [endAnnotation]
+                serialSyncQueue.async { [weak self] in
+                    guard let self = self else {
+                        return
+                    }
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else {
+                            return
+                        }
+                        self.parent.isLoading = true
+                    }
+                    self.findNprintRoute(start: start, end: coordinate, map: mapView)
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self else {
+                            return
+                        }
+                        self.parent.isLoading = false
+                        self.start = nil
+                    }
+                }
+                
+            } else {
                 start = coordinate
                 var startAnnotation = PointAnnotation(coordinate: start!)
                 startAnnotation.image = .init(image: UIImage(named: "red_pin")!, name: "red_pin")
                 (mapView.annotations.annotationManagersById["start_manager"] as! PointAnnotationManager).annotations = [startAnnotation]
-            } else {
-                var endAnnotation = PointAnnotation(coordinate: coordinate)
-                endAnnotation.image = .init(image: UIImage(named: "blue_pin")!, name: "blue_pin")
-                (mapView.annotations.annotationManagersById["end_manager"] as! PointAnnotationManager).annotations = [endAnnotation]
-                
-                findNprintRoute(start: start!, end: coordinate, map: mapView)
-                start = nil
             }
         }
         
         private func findNprintRoute(start: CLLocationCoordinate2D, end: CLLocationCoordinate2D, map: MapView) {
             let before = Date().timeIntervalSince1970
-            
+
             let array = Array(graph.map.keys)
             let startNode = array.sorted(by: {
                 return abs($0.latitude - start.latitude) + abs($0.longitude - start.longitude) < abs($1.latitude - start.latitude) + abs($1.longitude - start.longitude)
@@ -138,7 +163,6 @@ extension MapboxMapView {
             
             let after = Date().timeIntervalSince1970
             print("It took \(after - before) seconds")
-            
             (map.annotations.annotationManagersById["point_manager"] as! PointAnnotationManager).annotations = nodesOfRoute.map { node in
                 var annotation = PointAnnotation(coordinate: CLLocationCoordinate2D(latitude: node.latitude, longitude: node.longitude))
                 annotation.iconSize = 0.20

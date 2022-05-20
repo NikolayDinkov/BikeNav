@@ -11,7 +11,6 @@ import CoreLocation
 typealias PartialDistance = (id: Int, distanceToPrevious: Double)
 typealias PairDistance = (startNode: DenseNodeNew, endNode: DenseNodeNew, distanceToPrevious: Double)
 
-//MARK: We use that there could be only one type in primitivegroups
 class RawFile {
     private let serialSyncQueue = DispatchQueue(label: "serial.sync", qos: .userInteractive)
     private let parallelProcessingQueue = DispatchQueue(label: "parallel.dictionary", qos: .userInteractive, attributes: [.concurrent])
@@ -469,7 +468,7 @@ class RawFile {
     // Either find the next nodeRef that is also a crossroad in references
     // Or if there is no next nodeRef - incomplete way - loop through self.ways to find the next segment where there is a crossroad
     // If no next crossroad is found in self.ways - the road starts not on a crossroad - the very first/last node must become a crossroad
-    private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [PairDistance] { // MARK: Maybe we can manage the no-names with their id's
+    private func nextCrossroads(startCrossroadId: Int, way: WayNew, nodeIdsToStay: [Int]) -> [PairDistance] {
         let currentNodeIndex = way.nodeRefs.firstIndex(of: startCrossroadId)!
 
         switch currentNodeIndex {
@@ -740,7 +739,7 @@ class RawFile {
     
     private func sortNodesAndWays() {
         nodes.sort { $0.id < $1.id }
-        ways.sort { $0.id < $1.id }
+//        ways.sort { $0.id < $1.id }
     }
 }
 
